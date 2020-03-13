@@ -1,1 +1,2 @@
-localhost slots=32
+192.168.0.6 slots=1
+192.168.0.195 slots=1
