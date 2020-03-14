@@ -35,7 +35,7 @@ def init_distributed_world(conf, backend):
 
         torch.distributed.init_process_group(
             backend=backend,
-            init_method="file://" + os.path.abspath(dist_init_file),
+            init_method='tcp://{}:60000'.format(os.environ['MASTER_ADDR']),
             timeout=datetime.timedelta(seconds=120),
             world_size=conf.n_mpi_process,
             rank=conf.local_rank,
