@@ -63,6 +63,7 @@ class DataPartitioner(object):
         # sync the indices over nodes.
         indices = torch.IntTensor(indices)
         indices = indices.cuda() if self.conf.backend == "nccl" else indices
+        print('ranks:', self.conf.graph.ranks)
         group = dist.new_group(self.conf.graph.ranks)
         dist.broadcast(indices, src=0, group=group)
         indices = indices.cpu() if self.conf.backend == "nccl" else indices
