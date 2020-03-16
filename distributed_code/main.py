@@ -57,7 +57,7 @@ def main(conf):
 
     # define the timer for different operations.
     # if we choose the `train_fast` mode, then we will not track the time.
-    conf.timer = CUDATimer()
+    conf.timer = CUDATimer(conf.arch)
 
     # create dataset.
     data_loader = create_dataset.define_dataset(conf, force_shuffle=True)
