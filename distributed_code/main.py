@@ -20,8 +20,8 @@ import pcode.utils.checkpoint as checkpoint
 import pcode.utils.op_paths as op_paths
 import pcode.utils.stat_tracker as stat_tracker
 import pcode.utils.logging as logging
-from pcode.utils.timer import Timer
-
+#from pcode.utils.timer import Timer
+from lib import CUDATimer
 
 def init_distributed_world(conf, backend):
     if backend == "mpi":
@@ -57,11 +57,11 @@ def main(conf):
 
     # define the timer for different operations.
     # if we choose the `train_fast` mode, then we will not track the time.
-    conf.timer = Timer(
+    conf.timer = CUDATimer()"""Timer(
         verbosity_level=1 if conf.track_time and not conf.train_fast else 0,
         log_fn=conf.logger.log_metric,
         on_cuda=conf.on_cuda,
-    )
+    )"""
 
     # create dataset.
     data_loader = create_dataset.define_dataset(conf, force_shuffle=True)
