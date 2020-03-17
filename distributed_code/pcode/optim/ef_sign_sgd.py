@@ -39,6 +39,7 @@ class EF_SignSGD(Optimizer):
 
         # define the aggregator.
         self.world_aggregator = comm.get_aggregators(
+            conf,
             cur_rank=self.rank,
             world=conf.graph.ranks,
             neighbors_info=dict(
