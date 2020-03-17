@@ -95,8 +95,10 @@ def consistent_model(conf, model):
     This function is proposed to fix this issue,
     i.e., use the  model (rank=0) as the global model.
     """
+    timer = conf.timer
     print("consistent model for process (rank {})".format(conf.graph.rank))
     cur_rank = conf.graph.rank
     for param in model.parameters():
         param.data = param.data if cur_rank == 0 else param.data - param.data
-        dist.all_reduce(param.data, op=dist.ReduceOp.SUM)
+        with timer('com/consistent_model'):    
+            dist.all_reduce(param.data, op=dist.ReduceOp.SUM)
