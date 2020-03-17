@@ -29,6 +29,7 @@ def train_and_validate(
 
     # get the timer.
     timer = conf.timer
+    
     # break until finish expected full epoch training.
     print("=>>>> enter the training.\n")
     while True:
@@ -70,7 +71,7 @@ def train_and_validate(
                 do_validate(
                     conf, model, optimizer, criterion, scheduler, metrics, data_loader
                 )
-
+                timer.tracking += [tracker_tr()]
                 # refresh the logging cache at the begining of each epoch.
                 tracker_tr.reset()
 
