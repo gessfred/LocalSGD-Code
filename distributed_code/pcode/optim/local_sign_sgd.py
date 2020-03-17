@@ -70,7 +70,7 @@ class Local_SignSGD(Optimizer):
 
     def step(self, closure=None, **kargs):
         # do the local update steps.
-        with kargs["timer"]("sync.local_update", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/local_update", epoch=self.conf.epoch_):
             for group in self.param_groups:
                 weight_decay = group["weight_decay"]
                 momentum = group["momentum"]
@@ -112,7 +112,7 @@ class Local_SignSGD(Optimizer):
             self.conf.epoch_ < self.turn_on_local_step_from_epoch
             or self.conf.local_index % self.local_step == 0
         ):
-            with kargs["timer"]("sync.get_params", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/get_params", epoch=self.conf.epoch_):
                 # get parmas.
                 params, _ = comm.get_data(
                     self.param_groups, self.param_names, is_get_grad=False
@@ -131,7 +131,7 @@ class Local_SignSGD(Optimizer):
             directions_tb = TensorBuffer(local_sign)
 
             # sync and decompress.
-            with kargs["timer"]("sync.sync_and_decompress", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
                 directions_tb.buffer = self.world_aggregator._agg(
                     directions_tb.buffer, "avg", distributed=self.conf.distributed
@@ -141,7 +141,7 @@ class Local_SignSGD(Optimizer):
                 )
 
             # unpack the synced info and update the consensus params.
-            with kargs["timer"]("sync.update_consensus", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
                 for update_magnitude, update_direction, consensus_param in zip(
                     magnitudes_tb, directions_tb, self.consensus_params_tb
                 ):
