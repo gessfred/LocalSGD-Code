@@ -76,39 +76,39 @@ class EF_SignSGD(Optimizer):
             group.setdefault("nesterov", False)
 
     def step(self, closure=None, **kargs):
-        with kargs["timer"]("sync.apply_grad", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/apply_grad", epoch=self.conf.epoch_):
             utils.apply_gradient(
                 self.param_groups, self.state, apply_grad_to_model=False
             )
 
-        with kargs["timer"]("sync.get_data", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/get_data", epoch=self.conf.epoch_):
             # Get data.
             grads, _ = comm.get_data(
                 self.param_groups, self.param_names, is_get_grad=True
             )
             grads_tb = TensorBuffer(grads)
 
-        with kargs["timer"]("sync.use_memory", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/use_memory", epoch=self.conf.epoch_):
             # use memory.
             grads_tb.buffer.add_(self.memory_tb.buffer)
 
-        with kargs["timer"]("sync.compress", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/compress", epoch=self.conf.epoch_):
             # compress.
             sync_buffer = self.compressor.compress(grads_tb)
 
-        with kargs["timer"]("sync.sync", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/sync", epoch=self.conf.epoch_):
             self.compressor.sync(sync_buffer)
 
-        with kargs["timer"]("sync.update_memory", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/update_memory", epoch=self.conf.epoch_):
             # update memory.
             self.memory_tb.buffer = (
                 grads_tb.buffer - sync_buffer["synced_grads_tb"].buffer
             )
 
-        with kargs["timer"]("sync.decompress", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/decompress", epoch=self.conf.epoch_):
             sync_grads_tb = self.compressor.decompress(sync_buffer)
 
-        with kargs["timer"]("sync.apply_grad", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/apply_grad", epoch=self.conf.epoch_):
             # appply the gradient but only with the gradient.
             params, _ = comm.get_data(
                 self.param_groups, self.param_names, is_get_grad=False
