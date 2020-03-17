@@ -73,14 +73,14 @@ class SignSGD(Optimizer):
 
     def step(self, closure=None, **kargs):
         # do the local update steps.
-        with kargs["timer"]("sync.get_data", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/get_data", epoch=self.conf.epoch_):
             # get parmas.
             params, _ = comm.get_data(
                 self.param_groups, self.param_names, is_get_grad=False
             )
             params_tb = TensorBuffer(params)
 
-        with kargs["timer"]("sync.apply_grad", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/apply_grad", epoch=self.conf.epoch_):
             # prepare the gradient (sign)
             utils.apply_gradient(
                 self.param_groups, self.state, apply_grad_to_model=False
@@ -93,16 +93,16 @@ class SignSGD(Optimizer):
 
         # enter the global sync if it satisfies the condition.
         # get the params difference w.r.t. previous synced model.
-        with kargs["timer"]("sync.compress", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/compress", epoch=self.conf.epoch_):
             sync_buffer = self.compressor.compress(grads_tb)
 
         # sync and decompress.
-        with kargs["timer"]("sync.sync_and_decompress", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
             self.compressor.sync(sync_buffer)
             synced_updates_tb = self.compressor.decompress(sync_buffer)
 
         # unpack the synced info and update the consensus params.
-        with kargs["timer"]("sync.apply_grad", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/apply_grad", epoch=self.conf.epoch_):
             params_tb.buffer -= self.param_groups[0]["lr"] * synced_updates_tb.buffer
             params_tb.unpack(params)
         return sync_buffer["n_bits"]
