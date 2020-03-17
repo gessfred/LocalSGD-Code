@@ -143,6 +143,7 @@ def main(conf):
         metrics=metrics,
         data_loader=data_loader,
     )
+    conf.timer.upload(conf)
 
 
 def init_config(conf):
