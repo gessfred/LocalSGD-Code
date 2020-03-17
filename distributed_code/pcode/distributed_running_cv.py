@@ -32,7 +32,8 @@ def train_and_validate(
     # break until finish expected full epoch training.
     print("=>>>> enter the training.\n")
     while True:
-        dist.barrier()
+        with timer('com/barrier', epoch=scheduler.epoch_)
+            dist.barrier()
 
         # configure local step.
         for _input, _target in data_loader["train_loader"]:
