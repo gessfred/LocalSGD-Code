@@ -51,6 +51,7 @@ class DGC(Optimizer):
             enumerate([group["name"] for group in self.param_groups])
         )
         self.world_aggregator = get_aggregators(
+            conf,
             cur_rank=self.rank,
             world=conf.graph.ranks,
             neighbors_info=dict(
