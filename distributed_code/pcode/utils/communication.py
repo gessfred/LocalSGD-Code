@@ -370,13 +370,13 @@ class EfficientDecentralizedAggregation(Aggregation):
 
 def get_aggregators(conf, cur_rank, world, neighbors_info, aggregator_type, graph=None):
     if "centralized" == aggregator_type:
-        conf['aggregator'] = 'CentralizedAggregation'
+        conf.aggregator = 'CentralizedAggregation'
         return CentralizedAggregation(conf, cur_rank, world, neighbors_info)
     elif "decentralized" == aggregator_type:
-        conf['aggregator'] = 'DecentralizedAggregation'
+        conf.aggregator = 'DecentralizedAggregation'
         return DecentralizedAggregation(conf, cur_rank, neighbors_info)
     elif "efficient_decentralized" == aggregator_type:
-        conf['aggregator'] = 'EfficientDecentralizedAggregation'
+        conf.aggregator = 'EfficientDecentralizedAggregation'
         return EfficientDecentralizedAggregation(
             conf, world=world, rank=cur_rank, neighbors_info=neighbors_info, graph=graph
         )
