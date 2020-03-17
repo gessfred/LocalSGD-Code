@@ -70,12 +70,12 @@ class LocalSGD(Optimizer):
             group.setdefault("nesterov", False)
 
     def step(self, closure=None, **kargs):
-        with kargs["timer"]("sync.local_update", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/local_update", epoch=self.conf.epoch_):
             utils.apply_gradient(
                 self.param_groups, self.state, apply_grad_to_model=True
             )
 
-        with kargs["timer"]("sync.sync_and_update", epoch=self.conf.epoch_):
+        with kargs["timer"]("sync/sync_and_update", epoch=self.conf.epoch_):
             # enter the global sync if it satisfies the condition.
             if (
                 self.conf.epoch_ < self.turn_on_local_step_from_epoch
