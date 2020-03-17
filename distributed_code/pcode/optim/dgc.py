@@ -117,26 +117,26 @@ class DGC(Optimizer):
 
     def step(self, closure=None, **kargs):
         # apply local gradient.
-        with kargs["timer"]("grad.apply_grad", epoch=self.conf.epoch_):
+        with kargs["timer"]("grad/apply_grad", epoch=self.conf.epoch_):
             self._apply_gradient()
 
         # Unflatten the saved hat params.
-        with kargs["timer"]("grad.recover_hat_params", epoch=self.conf.epoch_):
+        with kargs["timer"]("grad/recover_hat_params", epoch=self.conf.epoch_):
             params, _ = get_data(self.param_groups, self.param_names, is_get_grad=False)
             grads, shapes = get_data(
                 self.param_groups, self.param_names, is_get_grad=True
             )
 
         # compress.
-        with kargs["timer"]("grad.compress", epoch=self.conf.epoch_):
+        with kargs["timer"]("grad/compress", epoch=self.conf.epoch_):
             selected_values, selected_indices, n_bits = self._compress(grads)
 
         # sync.
-        with kargs["timer"]("grad.sync", epoch=self.conf.epoch_):
+        with kargs["timer"]("grad/sync", epoch=self.conf.epoch_):
             synced_message, message_size = self._sync(selected_values, selected_indices)
 
         # recover and update the neighbor hat params.
-        with kargs["timer"]("grad.recover_info", epoch=self.conf.epoch_):
+        with kargs["timer"]("grad/recover_info", epoch=self.conf.epoch_):
             updated_flatten_params = self._recover_info(
                 flatten(params),
                 synced_message,
@@ -145,7 +145,7 @@ class DGC(Optimizer):
                 shapes,
             )
 
-        with kargs["timer"]("grad.update_model", epoch=self.conf.epoch_):
+        with kargs["timer"]("grad/update_model", epoch=self.conf.epoch_):
             # finally unflatten.
             unflatten(params, updated_flatten_params, shapes)
         return n_bits
