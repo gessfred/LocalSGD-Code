@@ -66,24 +66,24 @@ class SGD(Optimizer):
 
     def step(self, closure=None, **kargs):
         if self.conf.is_centralized:
-            with kargs["timer"]("sync.get_data", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/get_data", epoch=self.conf.epoch_):
                 # Get data.
                 grads, _ = comm.get_data(
                     self.param_groups, self.param_names, is_get_grad=True
                 )
                 flatten_grads = TensorBuffer(grads)
 
-            with kargs["timer"]("sync.sync", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/sync", epoch=self.conf.epoch_):
                 # Aggregate the gradients.
                 flatten_grads.buffer = self.world_aggregator._agg(
                     flatten_grads.buffer, op="avg", distributed=self.conf.distributed
                 )
 
-            with kargs["timer"]("sync.unflatten_grad", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/unflatten_grad", epoch=self.conf.epoch_):
                 # unflatten grads.
                 flatten_grads.unpack(grads)
 
-            with kargs["timer"]("sync.apply_grad", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/apply_grad", epoch=self.conf.epoch_):
                 utils.apply_gradient(
                     self.param_groups, self.state, apply_grad_to_model=True
                 )
@@ -91,19 +91,19 @@ class SGD(Optimizer):
             # Get n_bits to transmit.
             n_bits = get_n_bits(flatten_grads.buffer)
         else:
-            with kargs["timer"]("sync.apply_grad", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/apply_grad", epoch=self.conf.epoch_):
                 utils.apply_gradient(
                     self.param_groups, self.state, apply_grad_to_model=True
                 )
 
-            with kargs["timer"]("sync.get_data", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/get_data", epoch=self.conf.epoch_):
                 # first get and flatten all params.
                 params, _ = comm.get_data(
                     self.param_groups, self.param_names, is_get_grad=False
                 )
                 flatten_params = TensorBuffer(params)
 
-            with kargs["timer"]("sync.sync", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/sync", epoch=self.conf.epoch_):
                 # prepare the sync.
                 if self.conf.comm_device == "cpu":
                     flatten_params.buffer.cpu().detach_()
@@ -113,7 +113,7 @@ class SGD(Optimizer):
                     flatten_params.buffer, op="weighted"
                 )
 
-            with kargs["timer"]("sync.update_model", epoch=self.conf.epoch_):
+            with kargs["timer"]("sync/update_model", epoch=self.conf.epoch_):
                 # finally unflatten.
                 flatten_params.unpack(params)
 
