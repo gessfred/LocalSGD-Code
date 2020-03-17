@@ -99,6 +99,5 @@ def consistent_model(conf, model):
     print("consistent model for process (rank {})".format(conf.graph.rank))
     cur_rank = conf.graph.rank
     for param in model.parameters():
-        param.data = param.data if cur_rank == 0 else param.data - param.data
-        with timer('com/consistent_model'):    
-            dist.all_reduce(param.data, op=dist.ReduceOp.SUM)
+        param.data = param.data if cur_rank == 0 else param.data - param.data  
+        dist.all_reduce(param.data, op=dist.ReduceOp.SUM)
