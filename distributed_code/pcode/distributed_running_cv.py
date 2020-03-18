@@ -58,9 +58,9 @@ def train_and_validate(
 
             # display the logging info.
             display_training_stat(conf, scheduler, tracker_tr, n_bits_to_transmit)
-
             # finish one epoch training and to decide if we want to val our model.
             if scheduler.epoch_ % 1 == 0:
+                timer.epoch()
                 if tracker_tr.stat["loss"].avg > 1e3 or np.isnan(
                     tracker_tr.stat["loss"].avg
                 ):
