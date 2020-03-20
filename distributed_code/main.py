@@ -170,7 +170,7 @@ def init_config(conf):
         torch.manual_seed(conf.manual_seed)
         torch.cuda.manual_seed(conf.manual_seed)
         dev = int(conf.graph.device[0])
-        print('device: {} of {} [{}]'.format(dev, torch.cuda.device_count()), torch.cuda.is_available() and torch.cuda.is_initialized())
+        print('device: {} of {} [{}]'.format(dev, torch.cuda.device_count(), torch.cuda.is_available() and torch.cuda.is_initialized()))
         torch.cuda.set_device(dev)
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
