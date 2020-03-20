@@ -169,7 +169,9 @@ def init_config(conf):
         assert torch.cuda.is_available()
         torch.manual_seed(conf.manual_seed)
         torch.cuda.manual_seed(conf.manual_seed)
-        torch.cuda.set_device(int(conf.graph.device[0]))
+        dev = int(conf.graph.device[0])
+        print('device: {} of {} [{}]'.format(dev, torch.cuda.device_count()), torch.cuda.is_available() and torch.cuda.is_initialized())
+        torch.cuda.set_device(dev)
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = True if conf.train_fast else False
