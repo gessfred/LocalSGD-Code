@@ -51,7 +51,7 @@ def main(conf):
     except AttributeError as e:
         print(f"failed to init the distributed world: {e}.")
         conf.distributed = False
-
+    print('starting...')
     # init the config.
     init_config(conf)
 
