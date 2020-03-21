@@ -132,7 +132,7 @@ def main(conf):
 
     # save arguments to disk.
     checkpoint.save_arguments(conf)
-
+    print('started!')
     # start training.
     train_and_validate_fn(
         conf,
@@ -189,7 +189,7 @@ def init_config(conf):
 if __name__ == "__main__":
     # parse the arguments.
     conf = get_args()
-
+    print('got args!')
     # configure for multi-process training.
     if conf.optimizer == "parallel_choco":
         mp.set_start_method("forkserver", force=True)
