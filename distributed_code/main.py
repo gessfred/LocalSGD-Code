@@ -32,7 +32,7 @@ def init_distributed_world(conf, backend):
         op_paths.build_dirs(_tmp_path)
 
         dist_init_file = os.path.join(_tmp_path, "dist_init")
-
+        print('init nccl')
         torch.distributed.init_process_group(
             backend=backend,
             init_method='tcp://{}:60000'.format(os.environ['MASTER_ADDR']),
