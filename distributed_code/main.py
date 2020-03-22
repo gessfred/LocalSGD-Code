@@ -32,7 +32,7 @@ def init_distributed_world(conf, backend):
         op_paths.build_dirs(_tmp_path)
 
         dist_init_file = os.path.join(_tmp_path, "dist_init")
-        print('init nccl')
+        
         torch.distributed.init_process_group(
             backend=backend,
             init_method='tcp://{}:60000'.format(os.environ['MASTER_ADDR']),
@@ -51,7 +51,6 @@ def main(conf):
     except AttributeError as e:
         print(f"failed to init the distributed world: {e}.")
         conf.distributed = False
-    print('starting...')
     # init the config.
     init_config(conf)
 
@@ -132,7 +131,6 @@ def main(conf):
 
     # save arguments to disk.
     checkpoint.save_arguments(conf)
-    print('started!')
     # start training.
     train_and_validate_fn(
         conf,
@@ -169,9 +167,8 @@ def init_config(conf):
         assert torch.cuda.is_available()
         torch.manual_seed(conf.manual_seed)
         torch.cuda.manual_seed(conf.manual_seed)
-        dev = int(conf.graph.device[0])
-        print('device: {} of {} [{}]'.format(dev, torch.cuda.device_count(), torch.cuda.is_available()))
-        torch.cuda.set_device(dev)
+        
+        torch.cuda.set_device(conf.graph.device[0])
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = True if conf.train_fast else False
@@ -189,7 +186,7 @@ def init_config(conf):
 if __name__ == "__main__":
     # parse the arguments.
     conf = get_args()
-    print('got args!')
+    
     # configure for multi-process training.
     if conf.optimizer == "parallel_choco":
         mp.set_start_method("forkserver", force=True)

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from pcode.utils.communication import flatten
 
-
 class TensorBuffer:
     """
     Packs multiple tensors into one flat buffer for efficient
@@ -38,4 +37,3 @@ class TensorBuffer:
     def unpack(self, tensors):
         for tensor, entry in zip(tensors, self):
             tensor.data[:] = entry
-
