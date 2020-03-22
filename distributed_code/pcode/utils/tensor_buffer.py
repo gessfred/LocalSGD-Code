@@ -18,7 +18,7 @@ class TensorBuffer:
         self._tensors_len = len(tensors)
         self._tensors_sizes = [x.size() for x in tensors]
 
-        self.buffer = flatten(tensors, use_cuda=use_cuda)  # copies
+        self.buffer = flatten(tensors, use_cuda=use_cuda).toi1()  # copies
 
     def __getitem__(self, index):
         return self.buffer[self._start_idx[index] : self._end_idx[index]].view(
@@ -35,5 +35,6 @@ class TensorBuffer:
         return self.buffer.nelement()
 
     def unpack(self, tensors):
+        self.buffer = self.buffer.tof32()
         for tensor, entry in zip(tensors, self):
             tensor.data[:] = entry
