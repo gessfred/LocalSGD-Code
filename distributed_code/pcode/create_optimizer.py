@@ -7,7 +7,7 @@ from pcode.optim.local_sign_sgd import Local_SignSGD
 from pcode.optim.sign_sgd import SignSGD
 from pcode.optim.ef_sign_sgd import EF_SignSGD
 from pcode.optim.dgc import DGC
-
+from pcode.optim.local_ef_sgd import Local_EFSGD
 
 def define_optimizer(conf, model):
     # define the param to optimize.
