@@ -113,7 +113,8 @@ class Local_EFSGD(Optimizer):
                     
                     _local = quantize_gpu(memory.view(-1), self.bits)
                     # update memory.
-                    memory.view(-1).copy_(memory.view(-1) - unquantize_gpu(_local, self.bits)) #very bad, just a test
+                    print(_local)
+                    memory.view(-1).copy_(memory.view(-1) - unquantize_gpu(_local.view(-1), self.bits)) #very bad, just a test
                     # store local scales and local sign.
                     local.append(_local)
                     #local_scale.append(_local_scale)
