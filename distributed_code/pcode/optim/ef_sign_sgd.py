@@ -151,7 +151,7 @@ class EFSignCompressor(object):
         for synced_grad, grad_norm, grad in zip(
             synced_grads_tb, grad_norms_tb, grads_tb
         ):
-            synced_grad.data.copy_(grad_norm * torch.sign(grad) / grad.nelement())
+            synced_grad.data.copy_(grad.toi1())#(grad_norm * torch.sign(grad) / grad.nelement())
 
         # get n_bits to transmit.
         n_bits = get_n_bits(grad_norms_tb.buffer) + get_n_bits(signs)

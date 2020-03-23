@@ -88,6 +88,8 @@ def get_args():
     # optimizer
     parser.add_argument("--optimizer", type=str, default="sgd")
 
+    parser.add_argument('--compress_width', type=int, default=1)
+
     parser.add_argument("--adam_beta_1", default=0.9, type=float)
     parser.add_argument("--adam_beta_2", default=0.999, type=float)
     parser.add_argument("--adam_eps", default=1e-8, type=float)

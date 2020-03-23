@@ -37,6 +37,8 @@ def define_optimizer(conf, model):
         optim_class = Local_SignSGD
     elif conf.optimizer == "local_ef_sign_sgd":
         optim_class = Local_EFSignSGD
+    elif conf.optimizer == 'local_ef_sgd':
+        optim_class = Local_EFSGD
     else:
         raise NotImplementedError
 

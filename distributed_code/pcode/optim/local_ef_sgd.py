@@ -9,8 +9,10 @@ import pcode.utils.communication as comm
 from pcode.utils.sparsification import get_n_bits
 from pcode.utils.tensor_buffer import TensorBuffer
 
+from lib import quantize_gpu, unquantize_gpu
 
-class Local_EFSignSGD(Optimizer):
+
+class Local_EFSGD(Optimizer):
     def __init__(
         self,
         params,
@@ -20,7 +22,7 @@ class Local_EFSignSGD(Optimizer):
         weight_decay=0,
         nesterov=False,
         conf=None,
-        model=None,
+        model=None
     ):
         defaults = dict(
             lr=lr,
@@ -31,7 +33,7 @@ class Local_EFSignSGD(Optimizer):
         )
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
-        super(Local_EFSignSGD, self).__init__(params, defaults)
+        super(Local_EFSGD, self).__init__(params, defaults)
 
         # store the whole training arguments.
         self.conf = conf
@@ -39,6 +41,8 @@ class Local_EFSignSGD(Optimizer):
         self.neighbors_info = conf.graph.get_neighborhood()
         self.local_step = conf.local_step
         self.turn_on_local_step_from_epoch = conf.turn_on_local_step_from
+        
+        self.bits = conf.compress_width
 
         # define the aggregator.
         self.world_aggregator = comm.get_aggregators(
@@ -74,7 +78,7 @@ class Local_EFSignSGD(Optimizer):
         self.memory_tb.buffer = torch.zeros_like(self.memory_tb.buffer)
 
     def __setstate__(self, state):
-        super(Local_EFSignSGD, self).__setstate__(state)
+        super(Local_EFSGD, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault("nesterov", False)
 
@@ -98,55 +102,44 @@ class Local_EFSignSGD(Optimizer):
                 params_tb = TensorBuffer(params)
             with kargs['timer']('sync/memory_and_compress', epoch=self.conf.epoch_):
                 # get the params difference w.r.t. previous synced model.
-                local_scale, local_sign = [], []
+                local = []
                 for consensus_param, param, memory in zip(
                     self.consensus_params_tb, params_tb, self.memory_tb
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
                     # compress.
-                    _local_scale, _local_sign = scaled_sign(memory)
+                    #_local_scale, _local_sign = scaled_sign(memory)
+                    _local = quantize_gpu(memory, self.bits)
                     # update memory.
-                    memory.data.copy_(memory - _local_scale * _local_sign)
+                    memory.data.copy_(memory - unquantize_gpu(_local, self.bits)) #very bad, just a test
                     # store local scales and local sign.
-                    local_scale.append(_local_scale)
-                    local_sign.append(_local_sign)
+                    local.append(_local)
+                    #local_scale.append(_local_scale)
+                    #local_sign.append(_local_sign)
 
                 # concat the update magnitude and directions.
-                magnitudes_tb = TensorBuffer(local_scale)
-                directions_tb = TensorBuffer(local_sign)
+                local_tb = TensorBuffer(local)
 
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
-                directions_tb.buffer = self.world_aggregator._agg(
-                    directions_tb.buffer, "avg", distributed=self.conf.distributed
+                local_tb.buffer = self.world_aggregator._agg(
+                  local_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
-                magnitudes_tb.buffer = self.world_aggregator._agg(
-                    magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
-                )
+                local_tb.buffer = unquantize_gpu(local_tb.buffer, self.bits)
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
-                for update_magnitude, update_direction, consensus_param in zip(
-                    magnitudes_tb, directions_tb, self.consensus_params_tb
+                for update_local, consensus_param in zip(
+                    local_tb, self.consensus_params_tb
                 ):
-                    consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
+                    consensus_param.add_(-1.0, update_local)
 
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
-            n_bits = get_n_bits(directions_tb.buffer) + get_n_bits(magnitudes_tb.buffer)
+            n_bits = get_n_bits(local_tb.buffer) 
         else:
             n_bits = 0
         return n_bits
 
-
-def scaled_sign(x, name=None):
-    """
-    :param x: torch Tensor
-    :return: The sign tensor scaled by it's L1 norm divided by the number of elements
-    """
-    _scale = x.norm(p=1) / x.numel()
-    _sign = x.toi1() #torch.sign(x)
-
-    return _scale, _sign

@@ -106,4 +106,3 @@ class LocalSGD(Optimizer):
             else:
                 n_bits = 0
         return n_bits
-
