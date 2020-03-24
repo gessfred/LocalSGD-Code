@@ -108,6 +108,7 @@ class Local_EFSGD(Optimizer):
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
+                    local.append(memory)
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
                 local_tb = CompressedTensorBuffer(local, self.conf.compress_width)
