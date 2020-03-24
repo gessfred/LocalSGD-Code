@@ -108,7 +108,7 @@ class Local_EFSGD(Optimizer):
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
-                    print(memory.size)
+                    print(memory.size())
                     local.append(memory)
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
@@ -116,7 +116,7 @@ class Local_EFSGD(Optimizer):
                 for _local, memory in zip(
                     local_tb, self.memory_tb
                 ):    
-                    print(memory.size, _local.size)
+                    print(memory.size(), _local.size())
                     memory.view(-1).copy_(memory.view(-1) - _local) #very bad, just a test
                     # store local scales and local sign.
                     #local_scale.append(_local_scale)
