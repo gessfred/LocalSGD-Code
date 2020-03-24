@@ -111,7 +111,7 @@ class Local_EFSGD(Optimizer):
                     local.append(memory)
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
-                local_tb = TensorBuffer(local, self.conf.compress_width)
+                local_tb = CompressedTensorBuffer(local, self.conf.compress_width)
                 for _local, memory in zip(
                     local_tb, self.memory_tb
                 ):    
