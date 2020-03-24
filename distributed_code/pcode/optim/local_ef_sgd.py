@@ -9,7 +9,7 @@ import pcode.utils.communication as comm
 from pcode.utils.sparsification import get_n_bits
 from pcode.utils.tensor_buffer import TensorBuffer
 
-from lib import quantize_gpu, unquantize_gpu
+from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
 
 
 class Local_EFSGD(Optimizer):
@@ -110,18 +110,17 @@ class Local_EFSGD(Optimizer):
                     memory.data.copy_(consensus_param - param + memory)
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
-                    
-                    _local = quantize_gpu(memory.view(-1), self.bits)
+                local_tb = CompressedTensorBuffer(local)
+                for _local, memory in zip(
+                    local_tb, self.memory_tb
+                ):    
                     # update memory.
-                    print(_local)
                     memory.view(-1).copy_(memory.view(-1) - unquantize_gpu(_local.view(-1), self.bits)) #very bad, just a test
                     # store local scales and local sign.
-                    local.append(_local)
                     #local_scale.append(_local_scale)
                     #local_sign.append(_local_sign)
 
                 # concat the update magnitude and directions.
-                local_tb = TensorBuffer(local)
 
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
@@ -129,7 +128,7 @@ class Local_EFSGD(Optimizer):
                 local_tb.buffer = self.world_aggregator._agg(
                   local_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
-                local_tb.buffer = unquantize_gpu(local_tb.buffer, self.bits)
+                local_tb.decompress()
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
