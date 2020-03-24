@@ -115,8 +115,10 @@ class Local_EFSGD(Optimizer):
                 for _local, memory in zip(
                     local_tb, self.memory_tb
                 ):    
-                    fake_padding = memory.view(-1).shape[0] - _local.view(-1).shape[0]
+                    fake_padding = int(memory.view(-1).shape[0] - _local.view(-1).shape[0])
                     # update memory.
+                    print(memory, 'local', _local)
+                    print(fake_padding)
                     memory.view(-1).copy_(memory.view(-1) - unquantize_gpu(_local.view(-1), fake_padding, self.bits)) #very bad, just a test
                     # store local scales and local sign.
                     #local_scale.append(_local_scale)
