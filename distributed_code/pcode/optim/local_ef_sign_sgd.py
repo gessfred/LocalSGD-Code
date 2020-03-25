@@ -147,6 +147,6 @@ def scaled_sign(x, name=None):
     :return: The sign tensor scaled by it's L1 norm divided by the number of elements
     """
     _scale = x.norm(p=1) / x.numel()
-    _sign = x.toi1() #torch.sign(x)
+    _sign = torch.sign(x)
 
     return _scale, _sign
