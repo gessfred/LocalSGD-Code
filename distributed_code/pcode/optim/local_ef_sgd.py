@@ -118,13 +118,7 @@ class Local_EFSGD(Optimizer):
                 for _local, memory, norm in zip(
                     local_tb, self.memory_tb, l1_norms_tb
                 ):    
-
                     memory.copy_(memory - _local * norm) #very bad, just a test
-                    # store local scales and local sign.
-                    #local_scale.append(_local_scale)
-                    #local_sign.append(_local_sign)
-
-                # concat the update magnitude and directions.
 
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
