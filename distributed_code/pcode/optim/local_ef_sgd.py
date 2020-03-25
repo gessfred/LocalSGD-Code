@@ -130,16 +130,15 @@ class Local_EFSGD(Optimizer):
                 local_tb.buffer = self.world_aggregator._agg(
                   local_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
-                print(dist.get_backend())
                 local_tb.decompress()
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
-                for consensus_param, l1_norm in zip(
-                    self.consensus_params_tb, l1_norms_tb
+                for update_local, consensus_param, l1_norm in zip(
+                    local_tb, self.consensus_params_tb, l1_norms_tb
                 ):
 
-                    consensus_param.add_(-1.0,  l1_norm)
+                    consensus_param.add_(-1.0, update_local * l1_norm)
 
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
