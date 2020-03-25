@@ -115,6 +115,7 @@ class Local_EFSGD(Optimizer):
                 for _local, memory in zip(
                     local_tb, self.memory_tb
                 ):    
+
                     memory.copy_(memory - _local) #very bad, just a test
                     # store local scales and local sign.
                     #local_scale.append(_local_scale)
@@ -135,7 +136,9 @@ class Local_EFSGD(Optimizer):
                 for update_local, consensus_param in zip(
                     local_tb, self.consensus_params_tb
                 ):
+
                     consensus_param.add_(-1.0, update_local)
+                    print(consensus_param, '<=', update_local)
 
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
