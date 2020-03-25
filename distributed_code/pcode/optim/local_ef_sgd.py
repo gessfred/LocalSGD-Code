@@ -123,14 +123,14 @@ class Local_EFSGD(Optimizer):
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
-                print(local_tb.buffer)
-                local_tb.buffer = self.world_aggregator._agg(
-                  local_tb.buffer, 'avg', distributed=self.conf.distributed
-                )
+                print(local_tb.buffer, l1_norms_tb.buffer)
                 l1_norms_tb.buffer = self.world_aggregator._agg(
                   l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
-                local_tb.decompress()
+                local_tb.buffer = self.world_aggregator._agg(
+                  local_tb.buffer, 'avg', distributed=self.conf.distributed
+                )
+                #local_tb.decompress()
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
