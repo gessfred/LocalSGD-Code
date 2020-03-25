@@ -41,7 +41,7 @@ class Local_EFSGD(Optimizer):
         self.neighbors_info = conf.graph.get_neighborhood()
         self.local_step = conf.local_step
         self.turn_on_local_step_from_epoch = conf.turn_on_local_step_from
-        
+
         self.bits = conf.compress_width
 
         # define the aggregator.
@@ -103,20 +103,23 @@ class Local_EFSGD(Optimizer):
             with kargs['timer']('sync/memory_and_compress', epoch=self.conf.epoch_):
                 # get the params difference w.r.t. previous synced model.
                 local = []
+                l1_norms = []
                 for consensus_param, param, memory in zip(
                     self.consensus_params_tb, params_tb, self.memory_tb
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
                     local.append(memory)
+                    l1_norms.append(memory.norm(p=1) / memory.numel())
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
                 local_tb = CompressedTensorBuffer(local, self.conf.compress_width)
-                for _local, memory in zip(
-                    local_tb, self.memory_tb
+                l1_norms_tb = TensorBuffer(l1_norms)
+                for _local, memory, norm in zip(
+                    local_tb, self.memory_tb, l1_norms_tb
                 ):    
 
-                    memory.copy_(memory - _local) #very bad, just a test
+                    memory.copy_(memory - _local * norm) #very bad, just a test
                     # store local scales and local sign.
                     #local_scale.append(_local_scale)
                     #local_sign.append(_local_sign)
@@ -129,15 +132,18 @@ class Local_EFSGD(Optimizer):
                 local_tb.buffer = self.world_aggregator._agg(
                   local_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
+                l1_norms_tb.buffer = self.world_aggregator._agg(
+                  l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed
+                )
                 #local_tb.decompress()
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
-                for update_local, consensus_param in zip(
-                    local_tb, self.consensus_params_tb
+                for update_local, consensus_param, l1_norm in zip(
+                    local_tb, self.consensus_params_tb, l1_norms_tb
                 ):
 
-                    consensus_param.add_(-1.0, update_local)
+                    consensus_param.add_(-1.0, update_local * l1_norm)
 
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
@@ -146,3 +152,12 @@ class Local_EFSGD(Optimizer):
             n_bits = 0
         return n_bits
 
+def scaled_sign(x, name=None):
+    """
+    :param x: torch Tensor
+    :return: The sign tensor scaled by it's L1 norm divided by the number of elements
+    """
+    _scale = x.norm(p=1) / x.numel()
+    _sign = torch.sign(x)
+
+    return _scale, _sign
