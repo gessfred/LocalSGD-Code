@@ -138,7 +138,6 @@ class Local_EFSGD(Optimizer):
                 ):
 
                     consensus_param.add_(-1.0, update_local)
-                    print(consensus_param, '<=', update_local)
 
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
