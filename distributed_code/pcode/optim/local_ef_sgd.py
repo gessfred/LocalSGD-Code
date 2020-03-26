@@ -132,7 +132,6 @@ class Local_EFSGD(Optimizer):
                 local_tb.buffer = self.world_aggregator._agg(
                   local_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
                 )
-                print(local_tb.buffer.size())
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
