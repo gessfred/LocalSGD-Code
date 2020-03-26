@@ -138,10 +138,10 @@ class Local_EFSGD(Optimizer):
                 for update_local, consensus_param, l1_norm, padding in zip(
                     local_tb, self.consensus_params_tb, l1_norms_tb, paddings
                 ):
-                    print(update_local.size(), l1_norm.size())
-                    vec = unquantize_gpu(update_local, padding, 1)
+                    print(update_local.size(), l1_norm)
+                    vec = unquantize_gpu(update_local, padding, 1) * l1_norm
                     print(vec.size())
-                    consensus_param.add_(-1.0, vec * l1_norm)
+                    consensus_param.add_(-1.0, vec)
 
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
