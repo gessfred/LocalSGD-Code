@@ -121,7 +121,7 @@ class Local_EFSGD(Optimizer):
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
                 l1_norms_tb.buffer = self.world_aggregator._agg(
-                  l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed
+                  l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
                 )
                 local_tb.buffer = self.world_aggregator._agg(
                   local_tb.buffer.clone(), 'avg', distributed=self.conf.distributed, async_op=False
