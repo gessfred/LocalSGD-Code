@@ -124,7 +124,7 @@ class Local_EFSGD(Optimizer):
                   l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
                 local_tb.buffer = self.world_aggregator._agg(
-                  local_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
+                  local_tb.buffer.clone(), 'avg', distributed=self.conf.distributed, async_op=False
                 )
                 local_tb.decompress()
 
