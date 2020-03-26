@@ -139,8 +139,9 @@ class Local_EFSGD(Optimizer):
                     local_tb, self.consensus_params_tb, l1_norms_tb, paddings
                 ):
                     vec = unquantize_gpu(update_local, padding, 1) * l1_norm
-                    #consensus_param.view(-1).add_(-1.0, vec)
-
+                    torch.cuda.synchronize()
+                    consensus_param.view(-1).add_(-1.0, vec)
+                    torch.cuda.synchronize()
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
             n_bits = get_n_bits(local_tb.buffer) 
