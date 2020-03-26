@@ -126,6 +126,7 @@ class Local_EFSGD(Optimizer):
                 local_tb.buffer = self.world_aggregator._agg(
                   local_tb.buffer.clone(), 'avg', distributed=self.conf.distributed, async_op=False
                 )
+                print(local_tb.buffer.size())
                 local_tb.decompress()
 
             # unpack the synced info and update the consensus params.
