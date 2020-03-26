@@ -104,17 +104,23 @@ class Local_EFSGD(Optimizer):
             with kargs['timer']('sync/memory_and_compress', epoch=self.conf.epoch_):
                 # get the params difference w.r.t. previous synced model.
                 local = []
+                paddings = []
                 l1_norms = []
                 for consensus_param, param, memory in zip(
                     self.consensus_params_tb, params_tb, self.memory_tb
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
-                    local.append(memory)
-                    l1_norms.append(memory.norm(p=1) / memory.numel())
+                    local_, padding = quantize_gpu(memory, 1)
+                    local.append(local_)
+                    paddings.append(padding)
+                    l1_norm = memory.norm(p=1) / memory.numel()
+                    l1_norms.append(l1_norm)
+                    memory.copy_(memory - l1_norm*torch.sign(memory))
+
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
-                local_tb = CompressedTensorBuffer(local, self.conf.compress_width)
+                local_tb = TensorBuffer(local)
                 l1_norms_tb = TensorBuffer(l1_norms)
 
             # sync and decompress.
@@ -124,18 +130,17 @@ class Local_EFSGD(Optimizer):
                   l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
                 )
                 local_tb.buffer = self.world_aggregator._agg(
-                  local_tb.buffer.clone(), 'avg', distributed=self.conf.distributed, async_op=False
+                  local_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
                 )
                 print(local_tb.buffer.size())
-                local_tb.decompress()
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
-                for update_local, consensus_param, l1_norm in zip(
-                    local_tb, self.consensus_params_tb, l1_norms_tb
+                for update_local, consensus_param, l1_norm, padding in zip(
+                    local_tb, self.consensus_params_tb, l1_norms_tb, paddings
                 ):
-
-                    consensus_param.add_(-1.0, update_local * l1_norm)
+                    
+                    consensus_param.add_(-1.0, unquantize_gpu(update_local, padding, 1) * l1_norm)
 
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
