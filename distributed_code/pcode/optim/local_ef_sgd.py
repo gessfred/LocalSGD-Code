@@ -116,10 +116,6 @@ class Local_EFSGD(Optimizer):
                     #_local_scale, _local_sign = scaled_sign(memory)
                 local_tb = CompressedTensorBuffer(local, self.conf.compress_width)
                 l1_norms_tb = TensorBuffer(l1_norms)
-                for _local, memory, norm in zip(
-                    local_tb, self.memory_tb, l1_norms_tb
-                ):    
-                    memory.copy_(memory - _local * norm) #very bad, just a test
 
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
@@ -127,9 +123,9 @@ class Local_EFSGD(Optimizer):
                 l1_norms_tb.buffer = self.world_aggregator._agg(
                   l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
-                """local_tb.buffer = self.world_aggregator._agg(
-                  local_tb.buffer, 'avg', distributed=self.conf.distributed
-                )"""
+                local_tb.buffer = self.world_aggregator._agg(
+                  local_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
+                )
                 local_tb.decompress()
 
             # unpack the synced info and update the consensus params.
