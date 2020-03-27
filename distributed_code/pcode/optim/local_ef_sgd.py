@@ -135,6 +135,7 @@ class Local_EFSGD(Optimizer):
 
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
+                torch.cuda.synchronize()
                 for update_local, consensus_param, l1_norm, padding in zip(
                     local_tb, self.consensus_params_tb, l1_norms_tb, paddings
                 ):
