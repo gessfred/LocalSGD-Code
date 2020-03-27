@@ -11,6 +11,7 @@ from pcode.utils.sparsification import get_n_bits
 from pcode.utils.tensor_buffer import TensorBuffer
 
 from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
+from mpi4py import MPI
 
 
 class Local_EFSGD(Optimizer):
@@ -55,7 +56,7 @@ class Local_EFSGD(Optimizer):
             ),
             aggregator_type="centralized",
         )
-
+        MPI.COMM_WORLD.Disconnect()
         # define sorted param names.
         self.param_names = list(
             enumerate([group["name"] for group in self.param_groups])
