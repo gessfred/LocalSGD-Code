@@ -121,7 +121,7 @@ class Local_EFSGD(Optimizer):
 
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
-                local_tb = TensorBuffer(local)
+                local_tb = TensorBuffer(local) #compressed = comm.flatten(local, use_cuda=True)
                 l1_norms_tb = TensorBuffer(l1_norms)
 
             # sync and decompress.
@@ -131,11 +131,8 @@ class Local_EFSGD(Optimizer):
                   l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
                 )
                 torch.cuda.synchronize()
-                print(local_tb.buffer.size(), local_tb.buffer.device, dist.get_backend())
-                local_tb.buffer = self.world_aggregator._agg(
-                  local_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
-                )
-
+                dist.all_reduce(local_tb.buffer, op=dist.ReduceOp.SUM)
+                local_tb.buffer /= dist.get_world_size()
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
                 torch.cuda.synchronize()
