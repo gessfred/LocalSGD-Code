@@ -129,6 +129,8 @@ class Local_EFSGD(Optimizer):
                 l1_norms_tb.buffer = self.world_aggregator._agg(
                   l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
                 )
+                torch.cuda.synchronize()
+                print(local_tb.buffer.size(), local_tb.buffer.device, dist.get_backend())
                 local_tb.buffer = self.world_aggregator._agg(
                   local_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
                 )
