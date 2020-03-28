@@ -31,7 +31,7 @@ def allreduce(tensor):
     padding = 0
     pad_size = list(chunks[0].size())[0] % 32
     padding = (32 - pad_size) % 32
-    compressed_chunks = []*N
+    compressed_chunks = [None]*N
     for i in peers:
         compressed_chunk, _ = quantize_gpu(chunks[i], 1)
         send(compressed_chunk, i)
