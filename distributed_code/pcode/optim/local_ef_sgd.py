@@ -108,16 +108,16 @@ class Local_EFSGD(Optimizer):
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
-                    local.append(memory.clone())
+                    local.append(torch.sign(memory).clone())
                     l1_norm = memory.norm(p=1) / memory.numel()
                     l1_norms.append(l1_norm)
-                    memory.copy_(memory - l1_norm*torch.sign(memory))
+                    memory.copy_(memory - l1_norm*local[-1])
 
                     # compress.
                     #_local_scale, _local_sign = scaled_sign(memory)
                 local_tb = TensorBuffer(local) #compressed = comm.flatten(local, use_cuda=True)
                 l1_norms_tb = TensorBuffer(l1_norms)
-                buf, pad = quantize_gpu(local_tb.buffer, 1)
+                buf local_tb.buffer#, pad = quantize_gpu(local_tb.buffer, 1)
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
@@ -127,7 +127,7 @@ class Local_EFSGD(Optimizer):
                 buf = self.world_aggregator._agg(
                   buf, 'avg', distributed=self.conf.distributed
                 )
-                local_tb.buffer = unquantize_gpu(buf, pad, 1)
+                local_tb.buffer = buf#unquantize_gpu(buf, pad, 1)
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
                 for update_local, consensus_param, l1_norm in zip(
