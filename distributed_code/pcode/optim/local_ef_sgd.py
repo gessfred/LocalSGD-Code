@@ -113,11 +113,11 @@ class Local_EFSGD(Optimizer):
                 for consensus_param, param, memory in zip(
                     self.consensus_params_tb, params_tb, self.memory_tb
                 ):                    
-                    local_sign.append(_local_sign)
                     _local_scale, _local_sign = scaled_sign(memory)
                     # update memory.
                     memory.data.copy_(memory - _local_scale * _local_sign)
                     # store local scales and local sign.
+                    local_sign.append(_local_sign)
                     local_scale.append(_local_scale)
 
                 # concat the update magnitude and directions.
