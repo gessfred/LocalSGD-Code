@@ -132,13 +132,25 @@ class Local_EFSGD(Optimizer):
                 compressed = self.world_aggregator._agg(
                     compressed, "avg", distributed=self.conf.distributed
                 )
+                rank = dist.get_rank()
+                chunks = list(compressed_tb.buffer.view(dist.get_world_size(), -1))
+                for i, chunk in enumerate(chunks):
+                    small_chunk, padding = quantize_gpu(chunk, 1)
+                    #dist.g(small_chunk, i, op=dist.ReduceOp.SUM)
+                    small_chunks = []*2
+                    dist.gather(small_chunk, i, small_chunks)
+                    if i == rank:
+                        decompressed = list(map(lambda tensor: unquantize_gpu(tensor, padding, 1), small_chunks))
+                        chunks[rank] = torch.stack(decompressed).sum()
+                chunk = chunks[rank]
+                dist.all_gather(chunks, chunk)
                 directions_tb.buffer = self.world_aggregator._agg(
                     directions_tb.buffer, "avg", distributed=self.conf.distributed
                 )
                 magnitudes_tb.buffer = self.world_aggregator._agg(
                     magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
-            compressed_tb.buffer = unquantize_gpu(compressed, padding, 1)
+            #compressed_tb.buffer #= unquantize_gpu(compressed, padding, 1)
             print(compressed_tb.buffer - directions_tb.buffer)
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
