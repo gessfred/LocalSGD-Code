@@ -108,7 +108,7 @@ class Local_EFSGD(Optimizer):
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
-                    local.append(memory)
+                    local.append(memory.clone())
                     l1_norm = memory.norm(p=1) / memory.numel()
                     l1_norms.append(l1_norm)
                     memory.copy_(memory - l1_norm*torch.sign(memory))
