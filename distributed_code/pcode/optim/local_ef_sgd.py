@@ -32,11 +32,13 @@ def allreduce(tensor):
     pad_size = list(chunks[0].size())[0] % 32
     padding = (32 - pad_size) % 32
     compressed_chunks = [None]*N
-    '''req = list()
     for i in peers:
         compressed_chunk, _ = quantize_gpu(chunks[i], 1)
-        req.append(send(compressed_chunk, i))
         compressed_chunks[i] = compressed_chunk
+    '''req = list()
+
+        req.append(send(compressed_chunk, i))
+        
     [r.wait() for r in req]
     print('recv')
     buf = torch.zeros(chunks[0].size(), device=tensor.device)
