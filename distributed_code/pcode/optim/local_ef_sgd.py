@@ -16,7 +16,7 @@ def send(tensor, dst):
 	rank = dist.get_rank()
 	print(tensor, rank)
 	private = dist.new_group([rank, dst])
-	return dist.broadcast(tensor, rank, group=private, async_op=True)
+	return dist.broadcast(tensor, rank, group=private)
 
 def recv(tensor, src):
 	private = dist.new_group([src, dist.get_rank()])
