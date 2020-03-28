@@ -124,21 +124,22 @@ class Local_EFSGD(Optimizer):
                 magnitudes_tb = TensorBuffer(local_scale)
                 directions_tb = TensorBuffer(local_sign)
                 compressed_tb = TensorBuffer(local_compressed)
-                print(compressed_tb.buffer.size(), directions_tb.buffer.size())
+                compressed, padding = quantize_gpu(compressed_tb.buffer, 1)
+                #print(unquantize(compressed, padding, 1) - local_sign)
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
-                directions_tb.buffer = self.world_aggregator._agg(
-                    directions_tb.buffer, "avg", distributed=self.conf.distributed
+                compressed = self.world_aggregator._agg(
+                    compressed, "avg", distributed=self.conf.distributed
                 )
                 magnitudes_tb.buffer = self.world_aggregator._agg(
                     magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
-
+            compressed_tb.buffer = unquantize_gpu(compressed, padding, 1)
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
                 for update_magnitude, update_direction, consensus_param in zip(
-                    magnitudes_tb, directions_tb, self.consensus_params_tb
+                    magnitudes_tb, compressed_tb, self.consensus_params_tb
                 ):
                     consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
 
