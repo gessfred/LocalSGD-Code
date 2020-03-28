@@ -32,11 +32,11 @@ def allreduce(tensor):
     pad_size = list(chunks[0].size())[0] % 32
     padding = (32 - pad_size) % 32
     compressed_chunks = [None]*N
+    buf = torch.zeros(chunks[0].size(), device=tensor.device)
     if rank == 0:
         compressed_chunk, _ = quantize_gpu(chunks[1], 1)
         compressed_chunks[1] = compressed_chunk
         send(compressed_chunk, 1)
-        buf = torch.zeros(chunks[0].size(), device=tensor.device)
         recv(buf, 1)
         chunks[rank] = unquantize_gpu(buf, padding, 1)
         print('all_gather')
@@ -48,7 +48,6 @@ def allreduce(tensor):
         compressed_chunk, _ = quantize_gpu(chunks[0], 1)
         compressed_chunks[0] = compressed_chunk
         send(compressed_chunk, 0)
-        buf = torch.zeros(chunks[0].size(), device=tensor.device)
         print('all_gather')
         compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
         dist.all_gather(compressed_chunks, compressed_chunks[rank])
