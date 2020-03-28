@@ -125,7 +125,7 @@ class Local_EFSGD(Optimizer):
                 directions_tb = TensorBuffer(local_sign)
                 compressed_tb = TensorBuffer(local_compressed)
                 compressed, padding = quantize_gpu(compressed_tb.buffer, 1)
-                print(unquantize_gpu(compressed, padding, 1) - local_sign)
+                print(unquantize_gpu(compressed, padding, 1) - directions_tb.buffer)
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
