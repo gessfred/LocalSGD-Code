@@ -133,7 +133,7 @@ class Local_EFSGD(Optimizer):
                 for update_local, consensus_param, l1_norm in zip(
                     local_tb, self.consensus_params_tb, l1_norms_tb
                 ):
-                    consensus_param.view(-1).add_(-1.0, update_local*l1_norm)
+                    consensus_param.view(-1).add_(-1.0, update_local.view(-1)*l1_norm)
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
             n_bits = get_n_bits(local_tb.buffer) 
