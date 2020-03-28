@@ -32,7 +32,7 @@ def allreduce(tensor):
     pad_size = list(chunks[0].size())[0] % 32
     padding = (32 - pad_size) % 32
     compressed_chunks = [None]*N
-    req = list()
+    '''req = list()
     for i in peers:
         compressed_chunk, _ = quantize_gpu(chunks[i], 1)
         req.append(send(compressed_chunk, i))
@@ -42,7 +42,7 @@ def allreduce(tensor):
     buf = torch.zeros(chunks[0].size(), device=tensor.device)
     for i in peers:
         recv(buf, i)
-        chunks[rank] = unquantize_gpu(buf, padding, 1)
+        chunks[rank] = unquantize_gpu(buf, padding, 1)'''
     print('all_gather')
     compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
     dist.all_gather(compressed_chunks, compressed_chunks[rank])
