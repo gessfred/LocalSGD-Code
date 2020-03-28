@@ -102,23 +102,29 @@ class Local_EFSGD(Optimizer):
             with kargs['timer']('sync/memory_and_compress', epoch=self.conf.epoch_):
                 # get the params difference w.r.t. previous synced model.
                 local_scale, local_sign = [], []
+                local_compressed = []
                 for consensus_param, param, memory in zip(
                     self.consensus_params_tb, params_tb, self.memory_tb
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
+                    local_compressed.append(memory.data.clone())
                     # compress.
+                for consensus_param, param, memory in zip(
+                    self.consensus_params_tb, params_tb, self.memory_tb
+                ):                    
+                    local_sign.append(_local_sign)
                     _local_scale, _local_sign = scaled_sign(memory)
                     # update memory.
                     memory.data.copy_(memory - _local_scale * _local_sign)
                     # store local scales and local sign.
                     local_scale.append(_local_scale)
-                    local_sign.append(_local_sign)
 
                 # concat the update magnitude and directions.
                 magnitudes_tb = TensorBuffer(local_scale)
                 directions_tb = TensorBuffer(local_sign)
-
+                compressed_tb = TensorBuffer(local_compressed)
+                print(compressed_tb.buffer.size(), directions_tb.buffer.size())
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
