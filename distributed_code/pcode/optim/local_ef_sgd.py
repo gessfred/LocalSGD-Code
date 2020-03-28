@@ -16,7 +16,7 @@ def send(tensor, dst):
 	rank = dist.get_rank()
 	print(tensor, rank)
 	private = dist.new_group([rank, dst])
-	return dist.broadcast(tensor, rank, group=private)
+	dist.broadcast(tensor, rank, group=private)
 
 def recv(tensor, src):
 	private = dist.new_group([src, dist.get_rank()])
@@ -28,16 +28,14 @@ def allreduce(tensor):
     chunks = list(tensor.view(N, -1))
     peers = list(filter(lambda r: not r == rank, range(N)))
     print('send')
-    pad_size = list(chunks[0].size())[0] % 32
-    padding = (32 - pad_size) % 32
     compressed_chunks = [None]*N
-    buf = torch.zeros((chunks[0].size()+padding) / 32, device=tensor.device)
+
+    compressed_chunk, padding = quantize_gpu(chunks[(rank+1)%2], 1)
+    compressed_chunks[(rank+1)%2] = compressed_chunk
+    buf = torch.zeros(compressed_chunk.size(), device=tensor.device)
     print(buf)
     if rank == 0:
         print('sending', flush=True)
-        compressed_chunk, _ = quantize_gpu(chunks[1], 1)
-        print(compressed_chunk)
-        compressed_chunks[1] = compressed_chunk
         send(compressed_chunk, 1)
         recv(buf, 1)
         chunks[rank] = unquantize_gpu(buf, padding, 1)
@@ -48,8 +46,6 @@ def allreduce(tensor):
         print('receiving', flush=True)
         recv(buf, 0)
         chunks[rank] += unquantize_gpu(buf, padding, 1)
-        compressed_chunk, _ = quantize_gpu(chunks[0], 1)
-        compressed_chunks[0] = compressed_chunk
         send(compressed_chunk, 0)
         print('all_gather')
         compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
