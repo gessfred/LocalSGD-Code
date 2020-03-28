@@ -102,16 +102,13 @@ class Local_EFSGD(Optimizer):
             with kargs['timer']('sync/memory_and_compress', epoch=self.conf.epoch_):
                 # get the params difference w.r.t. previous synced model.
                 local = []
-                paddings = []
                 l1_norms = []
                 for consensus_param, param, memory in zip(
                     self.consensus_params_tb, params_tb, self.memory_tb
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
-                    local_, padding = quantize_gpu(memory, 1)
-                    local.append(local_)
-                    paddings.append(padding)
+                    local.append(memory)
                     l1_norm = memory.norm(p=1) / memory.numel()
                     l1_norms.append(l1_norm)
                     memory.copy_(memory - l1_norm*torch.sign(memory))
@@ -120,26 +117,23 @@ class Local_EFSGD(Optimizer):
                     #_local_scale, _local_sign = scaled_sign(memory)
                 local_tb = TensorBuffer(local) #compressed = comm.flatten(local, use_cuda=True)
                 l1_norms_tb = TensorBuffer(l1_norms)
-
+                buf, pad = quantize_gpu(local_tb.buffer, 1)
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
                 l1_norms_tb.buffer = self.world_aggregator._agg(
-                  l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed, async_op=False
+                  l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed
                 )
-                torch.cuda.synchronize()
-                dist.all_reduce(local_tb.buffer, op=dist.ReduceOp.SUM)
-                local_tb.buffer /= dist.get_world_size()
+                buf = self.world_aggregator._agg(
+                  buf, 'avg', distributed=self.conf.distributed
+                )
+                local_tb.buffer = unquantize_gpu(buf, pad, 1)
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
-                torch.cuda.synchronize()
-                for update_local, consensus_param, l1_norm, padding in zip(
-                    local_tb, self.consensus_params_tb, l1_norms_tb, paddings
+                for update_local, consensus_param, l1_norm in zip(
+                    local_tb, self.consensus_params_tb, l1_norms_tb
                 ):
-                    vec = unquantize_gpu(update_local, padding, 1) * l1_norm
-                    torch.cuda.synchronize()
-                    consensus_param.view(-1).add_(-1.0, vec)
-                    torch.cuda.synchronize()
+                    consensus_param.view(-1).add_(-1.0, update_local*l1_norm)
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
             n_bits = get_n_bits(local_tb.buffer) 
