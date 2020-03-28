@@ -137,8 +137,8 @@ class Local_EFSGD(Optimizer):
                 for i, chunk in enumerate(chunks):
                     small_chunk, padding = quantize_gpu(chunk, 1)
                     #dist.g(small_chunk, i, op=dist.ReduceOp.SUM)
-                    small_chunks = []*2
-                    dist.gather(small_chunk, i, small_chunks)
+                    small_chunks = [torch.empty(small_chunk.size())]*2
+                    dist.gather(small_chunk, dst=i, gather_list=small_chunks)
                     if i == rank:
                         decompressed = list(map(lambda tensor: unquantize_gpu(tensor, padding, 1), small_chunks))
                         chunks[rank] = torch.stack(decompressed).sum()
