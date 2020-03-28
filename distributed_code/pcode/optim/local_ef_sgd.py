@@ -33,7 +33,7 @@ def allreduce(tensor):
     padding = (32 - pad_size) % 32
     compressed_chunks = []*N
     for i in peers:
-        compressed_chunk = quantize_gpu(chunks[i], 1)
+        compressed_chunk, _ = quantize_gpu(chunks[i], 1)
         send(compressed_chunk, i)
         compressed_chunks[i] = compressed_chunk
     print('recv')
