@@ -38,7 +38,7 @@ def init_distributed_world(conf, backend):
             init_method='tcp://{}:60000'.format(os.environ['MASTER_ADDR']),
             timeout=datetime.timedelta(seconds=120),
             world_size=conf.n_mpi_process,
-            rank=conf.local_rank,
+            rank=int(conf.local_rank),
         )
     else:
         raise NotImplementedError
