@@ -28,7 +28,7 @@ def allreduce(tensor):
     chunks = list(tensor.view(N, -1))
     peers = list(filter(lambda r: not r == rank, range(N)))
     compressed_chunks = [None]*N
-
+    chunks[rank] = torch.sign(chunks[rank])
     compressed_chunk, padding = quantize_gpu(chunks[(rank+1)%2], 1)
     compressed_chunks[(rank+1)%2] = compressed_chunk
     buf = torch.zeros(compressed_chunk.size(), device=tensor.device)
