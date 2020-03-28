@@ -101,42 +101,44 @@ class Local_EFSGD(Optimizer):
                 params_tb = TensorBuffer(params)
             with kargs['timer']('sync/memory_and_compress', epoch=self.conf.epoch_):
                 # get the params difference w.r.t. previous synced model.
-                local = []
-                l1_norms = []
+                local_scale, local_sign = [], []
                 for consensus_param, param, memory in zip(
                     self.consensus_params_tb, params_tb, self.memory_tb
                 ):
                     # add memory to the model difference.
                     memory.data.copy_(consensus_param - param + memory)
-                    local.append(torch.sign(memory).clone())
-                    l1_norm = memory.norm(p=1) / memory.numel()
-                    l1_norms.append(l1_norm)
-                    memory.copy_(memory - l1_norm*local[-1])
-
                     # compress.
-                    #_local_scale, _local_sign = scaled_sign(memory)
-                local_tb = TensorBuffer(local) #compressed = comm.flatten(local, use_cuda=True)
-                l1_norms_tb = TensorBuffer(l1_norms)
-                buf local_tb.buffer#, pad = quantize_gpu(local_tb.buffer, 1)
+                    _local_scale, _local_sign = scaled_sign(memory)
+                    # update memory.
+                    memory.data.copy_(memory - _local_scale * _local_sign)
+                    # store local scales and local sign.
+                    local_scale.append(_local_scale)
+                    local_sign.append(_local_sign)
+
+                # concat the update magnitude and directions.
+                magnitudes_tb = TensorBuffer(local_scale)
+                directions_tb = TensorBuffer(local_sign)
+
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
-                l1_norms_tb.buffer = self.world_aggregator._agg(
-                  l1_norms_tb.buffer, 'avg', distributed=self.conf.distributed
+                directions_tb.buffer = self.world_aggregator._agg(
+                    directions_tb.buffer, "avg", distributed=self.conf.distributed
                 )
-                buf = self.world_aggregator._agg(
-                  buf, 'avg', distributed=self.conf.distributed
+                magnitudes_tb.buffer = self.world_aggregator._agg(
+                    magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
-                local_tb.buffer = buf#unquantize_gpu(buf, pad, 1)
+
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
-                for update_local, consensus_param, l1_norm in zip(
-                    local_tb, self.consensus_params_tb, l1_norms_tb
+                for update_magnitude, update_direction, consensus_param in zip(
+                    magnitudes_tb, directions_tb, self.consensus_params_tb
                 ):
-                    consensus_param.view(-1).add_(-1.0, update_local.view(-1)*l1_norm)
+                    consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
+
             # consistent the local models by assigning the consensus params.
             self.consensus_params_tb.unpack(params)
-            n_bits = get_n_bits(local_tb.buffer) 
+            n_bits = get_n_bits(directions_tb.buffer) + get_n_bits(magnitudes_tb.buffer)
         else:
             n_bits = 0
         return n_bits
