@@ -136,6 +136,7 @@ class Local_EFSGD(Optimizer):
                     magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
             compressed_tb.buffer = unquantize_gpu(compressed, padding, 1)
+            print(compressed_tb.buffer - directions_tb.buffer)
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
                 for update_magnitude, update_direction, consensus_param in zip(
