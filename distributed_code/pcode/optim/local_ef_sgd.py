@@ -27,31 +27,24 @@ def allreduce(tensor):
     N = dist.get_world_size()
     chunks = list(tensor.view(N, -1))
     peers = list(filter(lambda r: not r == rank, range(N)))
-    print('send')
     compressed_chunks = [None]*N
 
     compressed_chunk, padding = quantize_gpu(chunks[(rank+1)%2], 1)
     compressed_chunks[(rank+1)%2] = compressed_chunk
     buf = torch.zeros(compressed_chunk.size(), device=tensor.device)
-    print(buf)
     if rank == 0:
-        print('sending', flush=True)
         send(compressed_chunk, 1)
         recv(buf, 1)
-        chunks[rank] = unquantize_gpu(buf, padding, 1)
-        print('all_gather')
+        chunks[rank] += unquantize_gpu(buf, padding, 1)
         compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
         dist.all_gather(compressed_chunks, compressed_chunks[rank])
     elif rank == 1:
-        print('receiving', flush=True)
         recv(buf, 0)
         chunks[rank] += unquantize_gpu(buf, padding, 1)
         send(compressed_chunk, 0)
-        print('all_gather')
         compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
         dist.all_gather(compressed_chunks, compressed_chunks[rank])
-    for i, chunk in enumerate(chunks):
-        chunk.data[:] = unquantize_gpu(compressed_chunks[i], padding, 1)
+    chunks[(rank+1)%2] = unquantize_gpu(compressed_chunks[(rank+1)%2], padding, 1)
 
 class Local_EFSGD(Optimizer):
     def __init__(
