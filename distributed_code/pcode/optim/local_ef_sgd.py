@@ -163,9 +163,9 @@ class Local_EFSGD(Optimizer):
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
                 print('all-reduce')
-                print(compressed_tb.buffer)
+                print('before', compressed_tb.buffer)
                 allreduce(compressed_tb.buffer)
-                print(compressed_tb.buffer)
+                print('after', compressed_tb.buffer)
                 directions_tb.buffer = self.world_aggregator._agg(
                     directions_tb.buffer, "avg", distributed=self.conf.distributed
                 )
@@ -173,7 +173,7 @@ class Local_EFSGD(Optimizer):
                     magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
             #compressed_tb.buffer #= unquantize_gpu(compressed, padding, 1)
-            print(compressed_tb.buffer - directions_tb.buffer)
+            print('diff', compressed_tb.buffer - directions_tb.buffer)
             # unpack the synced info and update the consensus params.
             with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
                 for update_magnitude, update_direction, consensus_param in zip(
