@@ -45,6 +45,7 @@ def allreduce(tensor):
         compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
         dist.all_gather(compressed_chunks, compressed_chunks[rank])
     chunks[(rank+1)%2] = unquantize_gpu(compressed_chunks[(rank+1)%2], padding, 1)
+    tensor /= N
 
 class Local_EFSGD(Optimizer):
     def __init__(
@@ -162,7 +163,9 @@ class Local_EFSGD(Optimizer):
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
                 print('all-reduce')
+                print(compressed_tb.buffer)
                 allreduce(compressed_tb.buffer)
+                print(compressed_tb.buffer)
                 directions_tb.buffer = self.world_aggregator._agg(
                     directions_tb.buffer, "avg", distributed=self.conf.distributed
                 )
