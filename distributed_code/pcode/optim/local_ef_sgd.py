@@ -12,6 +12,40 @@ from pcode.utils.tensor_buffer import TensorBuffer
 
 from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
 
+def send(tensor, dst):
+	rank = dist.get_rank()
+	private = dist.new_group([rank, dst])
+	dist.broadcast(tensor, rank, group=private)
+
+def recv(tensor, src):
+	private = dist.new_group([src, dist.get_rank()])
+	dist.broadcast(tensor, src, group=private)
+
+def allreduce(tensor):
+    rank = dist.get_rank()
+    N = dist.get_world_size()
+    chunks = list(tensor.view(N, -1))
+    peers = list(filter(lambda r: not r == rank, range(N)))
+    print('send')
+    padding = 0
+    pad_size = list(chunks[0].size())[0] % 32
+    padding = (32 - pad_size) % 32
+    compressed_chunks = []*N
+    for i in peers:
+        compressed_chunk = quantize_gpu(chunks[i], 1)
+        send(compressed_chunk, i)
+        compressed_chunks[i] = compressed_chunk
+    print('recv')
+    buf = torch.zeros(chunks[0].size())
+    for i in peers:
+        recv(buf, i)
+        chunks[rank] = unquantize_gpu(buf, padding, 1)
+    print('all_gather')
+    compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
+    dist.all_gather(compressed_chunks, compressed_chunks[rank])
+    for i, chunk in enumerate(chunks):
+        chunk.data[:] = unquantize_gpu(compressed_chunks[i], padding, 1)
+
 class Local_EFSGD(Optimizer):
     def __init__(
         self,
@@ -124,26 +158,10 @@ class Local_EFSGD(Optimizer):
                 magnitudes_tb = TensorBuffer(local_scale)
                 directions_tb = TensorBuffer(local_sign)
                 compressed_tb = TensorBuffer(local_compressed)
-                compressed, padding = quantize_gpu(compressed_tb.buffer, 1)
-                print(unquantize_gpu(compressed, padding, 1) - directions_tb.buffer)
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
-                compressed = self.world_aggregator._agg(
-                    compressed, "avg", distributed=self.conf.distributed
-                )
-                rank = dist.get_rank()
-                chunks = list(compressed_tb.buffer.view(dist.get_world_size(), -1))
-                for i, chunk in enumerate(chunks):
-                    small_chunk, padding = quantize_gpu(chunk, 1)
-                    #dist.g(small_chunk, i, op=dist.ReduceOp.SUM)
-                    small_chunks = [torch.empty(small_chunk.size())]*2
-                    dist.gather(small_chunk, dst=i, gather_list=small_chunks)
-                    if i == rank:
-                        decompressed = list(map(lambda tensor: unquantize_gpu(tensor, padding, 1), small_chunks))
-                        chunks[rank] = torch.stack(decompressed).sum()
-                chunk = chunks[rank]
-                dist.all_gather(chunks, chunk)
+                allreduce(compressed_tb.buffer)
                 directions_tb.buffer = self.world_aggregator._agg(
                     directions_tb.buffer, "avg", distributed=self.conf.distributed
                 )
