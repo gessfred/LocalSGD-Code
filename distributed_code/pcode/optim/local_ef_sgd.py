@@ -15,6 +15,7 @@ from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
 def send(tensor, dst):
 	rank = dist.get_rank()
 	private = dist.new_group([rank, dst])
+    print(tensor, rank)
 	dist.broadcast(tensor, rank, group=private)
 
 def recv(tensor, src):
