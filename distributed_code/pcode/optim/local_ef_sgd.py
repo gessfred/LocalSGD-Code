@@ -37,7 +37,7 @@ def allreduce(tensor):
         send(compressed_chunk, i)
         compressed_chunks[i] = compressed_chunk
     print('recv')
-    buf = torch.zeros(chunks[0].size(), device=tensor.device())
+    buf = torch.zeros(chunks[0].size(), device=tensor.device)
     for i in peers:
         recv(buf, i)
         chunks[rank] = unquantize_gpu(buf, padding, 1)
