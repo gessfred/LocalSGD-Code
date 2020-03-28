@@ -132,6 +132,9 @@ class Local_EFSGD(Optimizer):
                 compressed = self.world_aggregator._agg(
                     compressed, "avg", distributed=self.conf.distributed
                 )
+                directions_tb.buffer = self.world_aggregator._agg(
+                    directions_tb.buffer, "avg", distributed=self.conf.distributed
+                )
                 magnitudes_tb.buffer = self.world_aggregator._agg(
                     magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
