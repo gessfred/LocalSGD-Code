@@ -16,7 +16,7 @@ def send(tensor, dst):
 	rank = dist.get_rank()
 	print(tensor, rank)
 	private = dist.new_group([rank, dst])
-	dist.broadcast(tensor, rank, group=private)
+	return dist.broadcast(tensor, rank, group=private, async_op=True)
 
 def recv(tensor, src):
 	private = dist.new_group([src, dist.get_rank()])
@@ -34,7 +34,7 @@ def allreduce(tensor):
     compressed_chunks = [None]*N
     for i in peers:
         compressed_chunk, _ = quantize_gpu(chunks[i], 1)
-        send(compressed_chunk, i)
+        req.append(send(compressed_chunk, i))
         compressed_chunks[i] = compressed_chunk
     print('recv')
     buf = torch.zeros(chunks[0].size(), device=tensor.device)
