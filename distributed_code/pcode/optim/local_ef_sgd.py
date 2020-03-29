@@ -165,6 +165,7 @@ class Local_EFSGD(Optimizer):
                 print('all-reduce')
                 print('before', compressed_tb.buffer)
                 allreduce(compressed_tb.buffer)
+                compressed_tb.buffer.round_()
                 print('after', compressed_tb.buffer)
                 directions_tb.buffer = self.world_aggregator._agg(
                     directions_tb.buffer, "avg", distributed=self.conf.distributed
