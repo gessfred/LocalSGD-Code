@@ -27,10 +27,8 @@ def allreduce(tensor):
     chunks = list(tensor.view(N, -1))
     compressed_chunks = [None]*N
     chunks[rank] = torch.sign(chunks[rank])
-    print('chunks', chunks)
     compressed_chunk, padding = quantize_gpu(chunks[(rank+1)%2], 1)
     compressed_chunks[(rank+1)%2] = compressed_chunk
-    print('compressed_chunks', compressed_chunks)
     buf = torch.zeros(compressed_chunk.size(), device=tensor.device)
     if rank == 0:
         send(compressed_chunk, 1)
@@ -41,16 +39,12 @@ def allreduce(tensor):
         recv(buf, 0)
         chunks[rank] += unquantize_gpu(buf, padding, 1)
         send(compressed_chunk, 0)    
-    print('chunks again', chunks)
     compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
-    print('sending', compressed_chunks[rank])
     dist.all_gather(compressed_chunks, compressed_chunks[rank])
     chunks[(rank+1)%2] = unquantize_gpu(compressed_chunks[(rank+1)%2], padding, 1)
     chunks[rank] /= N
-    print('chunk received', chunks)
     
-    tensor = torch.stack(chunks).view(tensor.size())
-    print('allreduce', tensor)
+    tensor[:] = torch.stack(chunks).view(tensor.size())
 class Local_EFSGD(Optimizer):
     def __init__(
         self,
