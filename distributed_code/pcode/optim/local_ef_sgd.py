@@ -46,7 +46,7 @@ def allreduce(tensor):
     print('sending', compressed_chunks[rank])
     dist.all_gather(compressed_chunks, compressed_chunks[rank])
     chunks[(rank+1)%2] = unquantize_gpu(compressed_chunks[(rank+1)%2], padding, 1)
-    print('chunk received', chunks[(rank+1)%2])
+    print('chunk received', chunks)
     tensor /= N
     print('allreduce', tensor)
 class Local_EFSGD(Optimizer):
