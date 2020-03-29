@@ -14,7 +14,6 @@ from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
 
 def send(tensor, dst):
 	rank = dist.get_rank()
-	print(tensor, rank)
 	private = dist.new_group([rank, dst])
 	dist.broadcast(tensor, rank, group=private)
 
@@ -26,7 +25,6 @@ def allreduce(tensor):
     rank = dist.get_rank()
     N = dist.get_world_size()
     chunks = list(tensor.view(N, -1))
-    peers = list(filter(lambda r: not r == rank, range(N)))
     compressed_chunks = [None]*N
     chunks[rank] = torch.sign(chunks[rank])
     compressed_chunk, padding = quantize_gpu(chunks[(rank+1)%2], 1)
@@ -36,17 +34,15 @@ def allreduce(tensor):
         send(compressed_chunk, 1)
         recv(buf, 1)
         chunks[rank] += unquantize_gpu(buf, padding, 1)
-        compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
-        dist.all_gather(compressed_chunks, compressed_chunks[rank])
     elif rank == 1:
         recv(buf, 0)
         chunks[rank] += unquantize_gpu(buf, padding, 1)
-        send(compressed_chunk, 0)
-        compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
-        dist.all_gather(compressed_chunks, compressed_chunks[rank])
+        send(compressed_chunk, 0)    
+    compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
+    dist.all_gather(compressed_chunks, compressed_chunks[rank])
     chunks[(rank+1)%2] = unquantize_gpu(compressed_chunks[(rank+1)%2], padding, 1)
     tensor /= N
-
+    print('allreduce', tensor)
 class Local_EFSGD(Optimizer):
     def __init__(
         self,
@@ -161,10 +157,7 @@ class Local_EFSGD(Optimizer):
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
                 allreduce(compressed_tb.buffer)
-                compressed_tb.buffer[compressed_tb.buffer.abs() <= 0.01] = 0
-                compressed_tb.buffer[compressed_tb.buffer > 0.01] = 1
-                compressed_tb.buffer[compressed_tb.buffer < -0.01] = -1
-                
+                print(compressed_tb.buffer)
                 magnitudes_tb.buffer = self.world_aggregator._agg(
                     magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
