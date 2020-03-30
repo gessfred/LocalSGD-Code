@@ -58,7 +58,9 @@ def centralized_allreduce(tensor):
         send(to_send, 0)
         recv(buf, 0)
     recv_ed = unquantize_gpu(buf, padding, 1)
-    tensor[:] = (recv_ed + torch.sign(tensor)) / 2
+    s = torch.sign(tensor)
+    print(recv_ed, '+', s)
+    tensor[:] = (recv_ed + s) / 2
 
 class Local_EFSGD(Optimizer):
     def __init__(
