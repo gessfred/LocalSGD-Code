@@ -45,6 +45,21 @@ def allreduce(tensor):
     chunks[rank] /= N
     
     tensor[:] = torch.stack(chunks).view(tensor.size())
+
+def centralized_allreduce(tensor):
+    rank = dist.get_rank()
+    N = dist.get_world_size()
+    to_send, padding = quantize_gpu(tensor, 1)
+    buf = to_send.clone()
+    if rank == 0:
+        recv(buf, 1)
+        send(to_send, 1)
+    else:
+        send(to_send, 0)
+        recv(buf, 0)
+    recv_ed = unquantize_gpu(buf, padding, 1)
+    tensor[:] = recv_ed + torch.sign(tensor) / 2
+
 class Local_EFSGD(Optimizer):
     def __init__(
         self,
@@ -164,7 +179,7 @@ class Local_EFSGD(Optimizer):
                 testor[3] = 1
                 testor[4] = -1
                 t1 = testor.clone()
-                allreduce(t1)
+                centralized_allreduce(t1)
                 print('test1', t1)
                 print('test2', self.world_aggregator._agg(
                     testor.clone(), "avg", distributed=self.conf.distributed
