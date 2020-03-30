@@ -159,7 +159,7 @@ class Local_EFSGD(Optimizer):
                 compressed_tb = TensorBuffer(local_compressed)
                 rank = dist.get_rank()
                 testor = torch.tensor([1, 0, -1, 1, -1]) if rank == 0 else torch.tensor([-1, 0, 1, 1, -1]) 
-                torch.cat_((testor, torch.zeros(27)))
+                testor = torch.cat((testor, torch.zeros(27)))
                 allreduce(testor)
                 print('test', testor)
             # sync and decompress.
