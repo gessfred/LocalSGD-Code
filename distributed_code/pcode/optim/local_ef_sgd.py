@@ -163,8 +163,10 @@ class Local_EFSGD(Optimizer):
                 testor[2] = -1 if rank == 0 else 1
                 testor[3] = 1
                 testor[4] = -1
-                allreduce(testor)
-                print('test', testor)
+                print('test1', allreduce(testor.clone()))
+                print('test2', self.world_aggregator._agg(
+                    testor.clone(), "avg", distributed=self.conf.distributed
+                ))
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
