@@ -14,12 +14,12 @@ from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
 
 def send(tensor, dst):
 	rank = dist.get_rank()
-	private = dist.new_group([rank, dst])
-	dist.broadcast(tensor, rank, group=private)
+	#private = dist.new_group([rank, dst])
+	dist.broadcast(tensor, rank)
 
 def recv(tensor, src):
-	private = dist.new_group([src, dist.get_rank()])
-	dist.broadcast(tensor, src, group=private)
+	#private = dist.new_group([src, dist.get_rank()])
+	dist.broadcast(tensor, src)
 
 def allreduce(tensor):
     rank = dist.get_rank()
