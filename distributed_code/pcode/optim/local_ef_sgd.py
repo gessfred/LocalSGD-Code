@@ -26,7 +26,7 @@ def allreduce(tensor):
     N = dist.get_world_size()
     chunks = list(tensor.view(N, -1))
     compressed_chunks = [None]*N
-    chunks[rank] = torch.sign(chunks[rank])
+    chunks[rank][:] = torch.sign(chunks[rank])
     compressed_chunk, padding = quantize_gpu(chunks[(rank+1)%2], 1)
     compressed_chunks[(rank+1)%2] = compressed_chunk
     buf = torch.zeros(compressed_chunk.size(), device=tensor.device)
@@ -157,6 +157,9 @@ class Local_EFSGD(Optimizer):
                 magnitudes_tb = TensorBuffer(local_scale)
                 directions_tb = TensorBuffer(local_sign)
                 compressed_tb = TensorBuffer(local_compressed)
+                testor = torch.tensor([1, 0, -1, 1, -1]) if rank == 0 else torch.tensor([-1, 0, 1, 1, -1]) 
+                allreduce(testor)
+                print(testor)
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
