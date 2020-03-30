@@ -163,7 +163,9 @@ class Local_EFSGD(Optimizer):
                 testor[2] = -1 if rank == 0 else 1
                 testor[3] = 1
                 testor[4] = -1
-                print('test1', allreduce(testor.clone()))
+                t1 = testor.clone()
+                allreduce(t1)
+                print('test1', t1)
                 print('test2', self.world_aggregator._agg(
                     testor.clone(), "avg", distributed=self.conf.distributed
                 ))
