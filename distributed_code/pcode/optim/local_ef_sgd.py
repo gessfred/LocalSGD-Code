@@ -168,13 +168,13 @@ class Local_EFSGD(Optimizer):
                     memory.data.copy_(memory - _local_scale * _local_sign)
                     # store local scales and local sign.
                     local_scale.append(_local_scale)
-                    local_sign.append(_local_sign)
+                    #local_sign.append(_local_sign)
 
                 # concat the update magnitude and directions.
                 magnitudes_tb = TensorBuffer(local_scale)
-                directions_tb = TensorBuffer(local_sign)
+                #directions_tb = TensorBuffer(local_sign)
                 compressed_tb = TensorBuffer(local_compressed)
-                rank = dist.get_rank()
+                """rank = dist.get_rank()
                 testor = torch.zeros(32).cuda()#torch.tensor([1, 0, -1, 1, -1]) if rank == 0 else torch.tensor([-1, 0, 1, 1, -1]) 
                 testor[0] = 1 if rank == 0 else -1
                 testor[2] = -1 if rank == 0 else 1
@@ -185,16 +185,16 @@ class Local_EFSGD(Optimizer):
                 print('test1', t1)
                 print('test2', self.world_aggregator._agg(
                     testor.clone(), "avg", distributed=self.conf.distributed
-                ))
+                ))"""
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
-                print('diff before ', compressed_tb.buffer - directions_tb.buffer)
-                directions_tb.buffer = self.world_aggregator._agg(
+                #print('diff before ', compressed_tb.buffer - directions_tb.buffer)
+                """directions_tb.buffer = self.world_aggregator._agg(
                     directions_tb.buffer, "avg", distributed=self.conf.distributed
-                )
-                allreduce(compressed_tb.buffer)
-                print('difff after', compressed_tb.buffer - directions_tb.buffer)
+                )"""
+                centralized_allreduce(compressed_tb.buffer)
+                #print('difff after', compressed_tb.buffer - directions_tb.buffer)
                 magnitudes_tb.buffer = self.world_aggregator._agg(
                     magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                 )
