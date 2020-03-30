@@ -158,8 +158,11 @@ class Local_EFSGD(Optimizer):
                 directions_tb = TensorBuffer(local_sign)
                 compressed_tb = TensorBuffer(local_compressed)
                 rank = dist.get_rank()
-                testor = torch.tensor([1, 0, -1, 1, -1]) if rank == 0 else torch.tensor([-1, 0, 1, 1, -1]) 
-                testor = torch.cat((testor, torch.zeros(27)))
+                testor = torch.zeros(32)#torch.tensor([1, 0, -1, 1, -1]) if rank == 0 else torch.tensor([-1, 0, 1, 1, -1]) 
+                testor[0] = 1 if rank == 0 else -1
+                testor[2] = -1 if rank == 0 else 1
+                testor[3] = 1
+                testor[4] = -1
                 allreduce(testor)
                 print('test', testor)
             # sync and decompress.
