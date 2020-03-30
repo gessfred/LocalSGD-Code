@@ -157,9 +157,10 @@ class Local_EFSGD(Optimizer):
                 magnitudes_tb = TensorBuffer(local_scale)
                 directions_tb = TensorBuffer(local_sign)
                 compressed_tb = TensorBuffer(local_compressed)
+                rank = dist.get_rank()
                 testor = torch.tensor([1, 0, -1, 1, -1]) if rank == 0 else torch.tensor([-1, 0, 1, 1, -1]) 
                 allreduce(testor)
-                print(testor)
+                print('test', testor)
             # sync and decompress.
             with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
                 # sync the directions.
