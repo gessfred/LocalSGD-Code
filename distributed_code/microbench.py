@@ -47,18 +47,22 @@ def allreduce(tensor):
     
     tensor[:] = torch.stack(chunks).view(tensor.size())
 
-def centralized_allreduce(tensor):
+def centralized_allreduce(tensor, timer):
     rank = dist.get_rank()
     N = dist.get_world_size()
-    to_send, padding = quantize_gpu(tensor, 1)
-    buf = to_send.clone()
-    if rank == 0:
-        recv(buf, 1)
-        send(to_send, 1)
-    else:
-        send(to_send, 0)
-        recv(buf, 0)
-    recv_ed = unquantize_gpu(buf, padding, 1)
+    with timer('compress-1'):
+        to_send, padding = quantize_gpu(tensor, 1)
+    with timer('clone'):
+        buf = to_send.clone()
+    with timer('exchange'):
+        if rank == 0:
+            recv(buf, 1)
+            send(to_send, 1)
+        else:
+            send(to_send, 0)
+            recv(buf, 0)
+    with timer('decompress'):
+        recv_ed = unquantize_gpu(buf, padding, 1)
     s = torch.sign(tensor)
     tensor[:] = (recv_ed + s) / 2
 
