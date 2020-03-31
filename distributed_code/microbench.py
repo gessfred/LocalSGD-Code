@@ -126,7 +126,7 @@ if __name__ == '__main__':
     rendezvous('nccl', rank, 2)
     conf = object()
     
-    tensors = [torch.ones(2**args.size) for i in range(10)]
+    tensors = [torch.ones(2**args.size).cuda() for i in range(10)]
     benchmark1(tensors)
-    tensors = [torch.ones(2**args.size) for i in range(10)]
+    tensors = [torch.ones(2**args.size).cuda() for i in range(10)]
     benchmark2(tensors)
