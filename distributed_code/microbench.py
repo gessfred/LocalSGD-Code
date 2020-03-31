@@ -8,7 +8,7 @@ import pcode.optim.utils as utils
 import pcode.utils.communication as comm
 from pcode.utils.sparsification import get_n_bits
 from pcode.utils.tensor_buffer import TensorBuffer
-from lib import quantize_gpu, unquantize_gpu, Timer
+from lib import quantize_gpu, unquantize_gpu, CUDATimer
 import argparse
 import os
 import datetime
@@ -73,7 +73,7 @@ def scaled_sign(x, name=None):
     return _scale, _sign
 
 def benchmark1(tensors, aggregator):
-    timer = Timer('benchmark1')
+    timer = CUDATimer('benchmark1')
     local_scale, local_sign = [], []
     with timer('compression'):
         for tensor in tensors:
@@ -94,7 +94,7 @@ def benchmark1(tensors, aggregator):
     timer.dump()
 
 def benchmark2(tensors, aggregator):
-    timer = Timer('benchmark2')
+    timer = CUDATimer('benchmark2')
     local_compressed, local_scale = [], []
     with timer('compression'):
         for tensor in tensors:
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     rank = int(os.environ['RANK'])
     rendezvous('nccl', rank, 2)
     agg = comm.get_aggregators(
-            {'aggregator': 'centralized', 'timer': Timer('dummy')},
+            {'aggregator': 'centralized', 'timer': CUDATimer('dummy')},
             cur_rank=rank,
             world=2,
             neighbors_info=dict(
