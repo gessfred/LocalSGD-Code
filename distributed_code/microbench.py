@@ -110,7 +110,7 @@ def benchmark2(tensors):
         #directions_tb = TensorBuffer(local_sign)
         compressed_tb = TensorBuffer(local_compressed)
     with timer('com'):
-        centralized_allreduce(compressed_tb.buffer)
+        centralized_allreduce(compressed_tb.buffer, timer)
                     #print('difff after', compressed_tb.buffer - directions_tb.buffer)
         dist.all_reduce(magnitudes_tb.buffer, op=dist.ReduceOp.SUM)
         magnitudes_tb.buffer /= 2
