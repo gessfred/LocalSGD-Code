@@ -72,7 +72,7 @@ def scaled_sign(x, name=None):
 
     return _scale, _sign
 
-def benchmark1(tensors, aggregator):
+def benchmark1(tensors):
     timer = CUDATimer('benchmark1')
     local_scale, local_sign = [], []
     with timer('compression'):
@@ -84,16 +84,14 @@ def benchmark1(tensors, aggregator):
         magnitudes_tb = TensorBuffer(local_scale)
         directions_tb = TensorBuffer(local_sign)
     with timer('com'):
-        magnitudes_tb.buffer = aggregator._agg(
-            magnitudes_tb.buffer, "avg"
-        )
-        directions_tb.buffer = aggregator._agg(
-            directions_tb.buffer, "avg"
-        )
+        dist.all_reduce(magnitudes_tb.buffer, op=dist.ReduceOp.SUM)
+        magnitudes_tb.buffer /= 2
+        dist.all_reduce(directions_tb.buffer, op=dist.ReduceOp.SUM)
+        directions_tb.buffer /= 2
     timer.map_events()
     timer.dump()
 
-def benchmark2(tensors, aggregator):
+def benchmark2(tensors):
     timer = CUDATimer('benchmark2')
     local_compressed, local_scale = [], []
     with timer('compression'):
@@ -110,9 +108,8 @@ def benchmark2(tensors, aggregator):
     with timer('com'):
         centralized_allreduce(compressed_tb.buffer)
                     #print('difff after', compressed_tb.buffer - directions_tb.buffer)
-        magnitudes_tb.buffer = aggregator._agg(
-            magnitudes_tb.buffer, "avg"
-        )
+        dist.all_reduce(magnitudes_tb.buffer, op=dist.ReduceOp.SUM)
+        magnitudes_tb.buffer /= 2
     timer.map_events()
     timer.dump()
 
@@ -127,15 +124,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     rank = int(os.environ['RANK'])
     rendezvous('nccl', rank, 2)
-    agg = comm.get_aggregators(
-            {'aggregator': 'centralized', 'timer': CUDATimer('dummy')},
-            cur_rank=rank,
-            world=2,
-            neighbors_info=dict(
-                (rank, 1.0 / 2) for rank in [(rank+1%2)]
-            ),
-            aggregator_type="centralized",)
+    conf = object()
+    
     tensors = [torch.ones(2**args.size) for i in range(10)]
-    benchmark1(tensors, agg)
+    benchmark1(tensors)
     tensors = [torch.ones(2**args.size) for i in range(10)]
-    benchmark2(tensors, agg)
+    benchmark2(tensors)
