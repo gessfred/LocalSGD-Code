@@ -79,66 +79,68 @@ class Local_EFSignSGD(Optimizer):
             group.setdefault("nesterov", False)
 
     def step(self, closure=None, **kargs):
-        # do the local update steps.
-        with kargs["timer"]("sync/local_update", epoch=self.conf.epoch_):
-            utils.apply_gradient(
-                self.param_groups, self.state, apply_grad_to_model=True
-            )
-
-        # enter the global sync if it satisfies the condition.
-        if (
-            self.conf.epoch_ < self.turn_on_local_step_from_epoch
-            or self.conf.local_index % self.local_step == 0
-        ):
-            with kargs["timer"]("sync/get_params", epoch=self.conf.epoch_):
-                # get parmas.
-                params, _ = comm.get_data(
-                    self.param_groups, self.param_names, is_get_grad=False
-                )
-                params_tb = TensorBuffer(params)
-            with kargs['timer']('sync/memory_and_compress', epoch=self.conf.epoch_):
-                # get the params difference w.r.t. previous synced model.
-                local_scale, local_sign = [], []
-                for consensus_param, param, memory in zip(
-                    self.consensus_params_tb, params_tb, self.memory_tb
-                ):
-                    # add memory to the model difference.
-                    memory.data.copy_(consensus_param - param + memory)
-                    # compress.
-                    _local_scale, _local_sign = scaled_sign(memory)
-                    # update memory.
-                    memory.data.copy_(memory - _local_scale * _local_sign)
-                    # store local scales and local sign.
-                    local_scale.append(_local_scale)
-                    local_sign.append(_local_sign)
-
-                # concat the update magnitude and directions.
-                magnitudes_tb = TensorBuffer(local_scale)
-                directions_tb = TensorBuffer(local_sign)
-
-            # sync and decompress.
-            with kargs["timer"]("sync/sync_and_decompress", epoch=self.conf.epoch_):
-                # sync the directions.
-                directions_tb.buffer = self.world_aggregator._agg(
-                    directions_tb.buffer, "avg", distributed=self.conf.distributed
-                )
-                magnitudes_tb.buffer = self.world_aggregator._agg(
-                    magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
+        with kargs['timer']('sync', epoch=self.conf.epoch_):
+            # do the local update steps.
+            with kargs["timer"]("local_update", epoch=self.conf.epoch_):
+                utils.apply_gradient(
+                    self.param_groups, self.state, apply_grad_to_model=True
                 )
 
-            # unpack the synced info and update the consensus params.
-            with kargs["timer"]("sync/update_consensus", epoch=self.conf.epoch_):
-                for update_magnitude, update_direction, consensus_param in zip(
-                    magnitudes_tb, directions_tb, self.consensus_params_tb
-                ):
-                    consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
+            # enter the global sync if it satisfies the condition.
+            if (
+                self.conf.epoch_ < self.turn_on_local_step_from_epoch
+                or self.conf.local_index % self.local_step == 0
+            ):
+                with kargs["timer"]("get_params", epoch=self.conf.epoch_):
+                    # get parmas.
+                    params, _ = comm.get_data(
+                        self.param_groups, self.param_names, is_get_grad=False
+                    )
+                    params_tb = TensorBuffer(params)
+                with kargs['timer']('memory_and_compress', epoch=self.conf.epoch_):
+                    # get the params difference w.r.t. previous synced model.
+                    local_scale, local_sign = [], []
+                    for consensus_param, param, memory in zip(
+                        self.consensus_params_tb, params_tb, self.memory_tb
+                    ):
+                        # add memory to the model difference.
+                        memory.data.copy_(consensus_param - param + memory)
+                        # compress.
+                        _local_scale, _local_sign = scaled_sign(memory)
+                        # update memory.
+                        memory.data.copy_(memory - _local_scale * _local_sign)
+                        # store local scales and local sign.
+                        local_scale.append(_local_scale)
+                        local_sign.append(_local_sign)
 
-            # consistent the local models by assigning the consensus params.
-            self.consensus_params_tb.unpack(params)
-            n_bits = get_n_bits(directions_tb.buffer) + get_n_bits(magnitudes_tb.buffer)
-        else:
-            n_bits = 0
-        return n_bits
+                    # concat the update magnitude and directions.
+
+                # sync and decompress.
+                with kargs["timer"]("directions", epoch=self.conf.epoch_):
+                    # sync the directions.
+                    directions_tb = TensorBuffer(local_sign)
+                    directions_tb.buffer = self.world_aggregator._agg(
+                        directions_tb.buffer, "avg", distributed=self.conf.distributed
+                    )
+                with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
+                    magnitudes_tb = TensorBuffer(local_scale)
+                    magnitudes_tb.buffer = self.world_aggregator._agg(
+                        magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
+                    )
+
+                # unpack the synced info and update the consensus params.
+                with kargs["timer"]("update_consensus", epoch=self.conf.epoch_):
+                    for update_magnitude, update_direction, consensus_param in zip(
+                        magnitudes_tb, directions_tb, self.consensus_params_tb
+                    ):
+                        consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
+
+                # consistent the local models by assigning the consensus params.
+                self.consensus_params_tb.unpack(params)
+                n_bits = get_n_bits(directions_tb.buffer) + get_n_bits(magnitudes_tb.buffer)
+            else:
+                n_bits = 0
+            return n_bits
 
 
 def scaled_sign(x, name=None):
