@@ -172,9 +172,11 @@ class Local_EFSGD(Optimizer):
                 # sync and decompress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     compressed_tb = TensorBuffer(local_compressed)
+                    print('|Directions|', compressed_tb.buffer.size())
                     centralized_allreduce(compressed_tb.buffer)
                 with kargs['timer']('magnitudes', epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
+                    print('|Magnitues|', magnitudes_tb.buffer.size())
                     magnitudes_tb.buffer = self.world_aggregator._agg(
                         magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                     )
