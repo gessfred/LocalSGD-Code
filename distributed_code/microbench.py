@@ -77,7 +77,7 @@ def scaled_sign(x, name=None):
     return _scale, _sign
 
 def benchmark1(tensors):
-    timer = CUDATimer('benchmark1')
+    timer = CUDATimer('baseline')
     local_scale, local_sign = [], []
     with timer('compression'):
         for tensor in tensors:
@@ -93,10 +93,15 @@ def benchmark1(tensors):
         dist.all_reduce(directions_tb.buffer, op=dist.ReduceOp.SUM)
         directions_tb.buffer /= 2
     timer.map_events()
-    timer.dump()
+    timer.upload_raw('microbenchmarking', 
+        {
+            'microbenchmark': 'sign_sgd_com', 
+            'input': list(map(lambda t: t.size(), tensors))
+        }
+    )
 
 def benchmark2(tensors):
-    timer = CUDATimer('benchmark2')
+    timer = CUDATimer('centralized_allreduce')
     local_compressed, local_scale = [], []
     with timer('compression'):
         for tensor in tensors:
@@ -115,7 +120,13 @@ def benchmark2(tensors):
         dist.all_reduce(magnitudes_tb.buffer, op=dist.ReduceOp.SUM)
         magnitudes_tb.buffer /= 2
     timer.map_events()
-    timer.dump()
+    timer.upload_raw('microbenchmarking', 
+        {
+            'microbenchmark': 'sign_sgd_com', 
+            'input': list(map(lambda t: t.size(), tensors))
+        }
+    )
+    #timer.dump()
 
 def rendezvous(backend, rank, world_size):
     dist.init_process_group(backend, rank=rank, timeout=datetime.timedelta(seconds=10), world_size=world_size, init_method='tcp://{}:60000'.format(os.environ['MASTER_ADDR']))
@@ -129,8 +140,8 @@ if __name__ == '__main__':
     rank = int(os.environ['RANK'])
     rendezvous('nccl', rank, 2)
     conf = object()
-    
-    tensors = [torch.ones(2**args.size).cuda() for i in range(10)]
-    benchmark1(tensors)
-    tensors = [torch.ones(2**args.size).cuda() for i in range(10)]
-    benchmark2(tensors)
+    for size in range(10, 24):
+        tensors = [torch.ones(2**size).cuda() for i in range(10)]
+        benchmark1(tensors)
+        tensors = [torch.ones(2**size).cuda() for i in range(10)]
+        benchmark2(tensors)
