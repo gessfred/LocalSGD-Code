@@ -92,7 +92,6 @@ def benchmark1(tensors):
         magnitudes_tb.buffer /= 2
         dist.all_reduce(directions_tb.buffer, op=dist.ReduceOp.SUM)
         directions_tb.buffer /= 2
-    timer.map_events()
     timer.upload_raw('microbenchmarking', 
         {
             'microbenchmark': 'sign_sgd_com', 
@@ -119,7 +118,6 @@ def benchmark2(tensors):
                     #print('difff after', compressed_tb.buffer - directions_tb.buffer)
         dist.all_reduce(magnitudes_tb.buffer, op=dist.ReduceOp.SUM)
         magnitudes_tb.buffer /= 2
-    timer.map_events()
     timer.upload_raw('microbenchmarking', 
         {
             'microbenchmark': 'sign_sgd_com', 
