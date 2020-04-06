@@ -46,17 +46,18 @@ def allreduce(tensor):
     
     tensor[:] = torch.stack(chunks).view(tensor.size())
 
-def centralized_allreduce(tensor):
+def centralized_allreduce(tensor, timer):
     rank = dist.get_rank()
     N = dist.get_world_size()
     to_send, padding = quantize_gpu(tensor, 1)
     buf = to_send.clone()
-    if rank == 0:
-        recv(buf, 1)
-        send(to_send, 1)
-    else:
-        send(to_send, 0)
-        recv(buf, 0)
+    with timer('exchange'):
+        if rank == 0:
+            recv(buf, 1)
+            send(to_send, 1)
+        else:
+            send(to_send, 0)
+            recv(buf, 0)
     recv_ed = unquantize_gpu(buf, padding, 1)
     s = torch.sign(tensor)
     tensor[:] = (recv_ed + s) / 2
@@ -159,10 +160,7 @@ class Local_EFSGD(Optimizer):
                         # add memory to the model difference.
                         memory.data.copy_(consensus_param - param + memory)
                         local_compressed.append(memory.data.clone())
-                        # compress.
-                    for consensus_param, param, memory in zip(
-                        self.consensus_params_tb, params_tb, self.memory_tb
-                    ):                    
+                        # compress.     
                         _local_scale, _local_sign = scaled_sign(memory)
                         # update memory.
                         memory.data.copy_(memory - _local_scale * _local_sign)
@@ -172,7 +170,7 @@ class Local_EFSGD(Optimizer):
                 # sync and decompress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     compressed_tb = TensorBuffer(local_compressed)
-                    centralized_allreduce(compressed_tb.buffer)
+                    centralized_allreduce(compressed_tb.buffer, kargs['timer'])
                 with kargs['timer']('magnitudes', epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
                     magnitudes_tb.buffer = self.world_aggregator._agg(
