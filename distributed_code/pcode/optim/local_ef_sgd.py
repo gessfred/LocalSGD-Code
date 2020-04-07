@@ -167,15 +167,21 @@ class Local_EFSGD(Optimizer):
                         # store local scales and local sign.
                         local_scale.append(_local_scale)
 
-                # sync and decompress.
-                with kargs["timer"]("directions", epoch=self.conf.epoch_):
-                    compressed_tb = TensorBuffer(local_compressed)
-                    centralized_allreduce(compressed_tb.buffer, kargs['timer'])
                 with kargs['timer']('magnitudes', epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
                     magnitudes_tb.buffer = self.world_aggregator._agg(
                         magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                     )
+                # sync and decompress.
+                with kargs["timer"]("directions", epoch=self.conf.epoch_):
+                    compressed_tb = TensorBuffer(local_compressed)
+                    to_send, padding = quantize_gpu(compressed_tb.buffer, 1)
+                    buf = to_send.clone()
+                    dist.broadcast(buf if self.rank == 0 else to_send, 1)
+                    dist.broadcast(to_send if self.rank == 0 else buf, 0)
+                    recv_ed = unquantize_gpu(buf, padding, 1)
+                    s = torch.sign(compressed_tb.buffer)
+                    compressed_tb.buffer = (recv_ed + s) / 2
                 #compressed_tb.buffer #= unquantize_gpu(compressed, padding, 1)
                 
                 # unpack the synced info and update the consensus params.
