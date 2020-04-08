@@ -192,7 +192,7 @@ class Local_EFSGD(Optimizer):
                     tmp.buffer = self.world_aggregator._agg(
                         tmp.buffer, "avg", distributed=self.conf.distributed
                     )
-                    print((tmp - TensorBuffer(res).buffer))
+                    print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
                     magnitudes_tb.buffer = self.world_aggregator._agg(
