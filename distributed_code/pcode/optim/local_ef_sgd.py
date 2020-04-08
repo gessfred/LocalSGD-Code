@@ -185,8 +185,8 @@ class Local_EFSGD(Optimizer):
                         local_sign, paddings, buffers
                     ):
                         recv_ed = unquantize_gpu(buffer, pad, 1)
-                        print(sign.size(), recv_ed.size(), sign, recv_ed)
-                        res.append((recv_ed + sign) / 2)
+                        #print(sign.size(), recv_ed.size(), sign, recv_ed)
+                        res.append((recv_ed.view(sign.size()) + sign) / 2)
                     #res_tb = TensorBuffer(res)
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
