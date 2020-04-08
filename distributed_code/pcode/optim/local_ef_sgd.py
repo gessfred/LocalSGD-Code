@@ -178,7 +178,7 @@ class Local_EFSGD(Optimizer):
                     # sync the directions.
                     directions_tb = TensorBuffer(compressed)
                     buffers = TensorBuffer(compressed)
-                    print('BEFORE', directions_tb)
+                    print('BEFORE', directions_tb.buffer)
                     dist.broadcast(directions_tb.buffer if self.rank == 0 else buffers.buffer, 0)
                     dist.broadcast(buffers.buffer if self.rank == 0 else directions_tb.buffer, 1)
                     res = []
