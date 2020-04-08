@@ -153,6 +153,8 @@ class Local_EFSGD(Optimizer):
                 with kargs['timer']('memory_and_compress', epoch=self.conf.epoch_):
                     # get the params difference w.r.t. previous synced model.
                     local_scale, local_sign = [], []
+                    paddings = []
+                    compressed = []
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
@@ -160,6 +162,9 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
+                        d, p = quantize_gpu(memory.data, 1)
+                        compressed.append(d)
+                        paddings.append(p)
                         # update memory.
                         memory.data.copy_(memory - _local_scale * _local_sign)
                         # store local scales and local sign.
@@ -171,10 +176,17 @@ class Local_EFSGD(Optimizer):
                 # sync and decompress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     # sync the directions.
-                    directions_tb = TensorBuffer(local_sign)
-                    directions_tb.buffer = self.world_aggregator._agg(
-                        directions_tb.buffer, "avg", distributed=self.conf.distributed
-                    )
+                    directions_tb = TensorBuffer(compressed)
+                    buffers = TensorBuffer(compressed)
+                    dist.broadcast(directions_tb.buffer if self.rank == 0 else buffers.buffer, 0)
+                    dist.broadcast(buffers.buffer if self.rank == 0 else directions_tb.buffer, 1)
+                    res = []
+                    for  sign, pad, buffer in zip(
+                        local_sign, paddings, buffers
+                    ):
+                        recv_ed = unquantize_gpu(buffer, pad, 1)
+                        res.append((recv_ed + sign) / 2)
+                    #res_tb = TensorBuffer(res)
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
                     magnitudes_tb.buffer = self.world_aggregator._agg(
@@ -184,7 +196,7 @@ class Local_EFSGD(Optimizer):
                 # unpack the synced info and update the consensus params.
                 with kargs["timer"]("update_consensus", epoch=self.conf.epoch_):
                     for update_magnitude, update_direction, consensus_param in zip(
-                        magnitudes_tb, directions_tb, self.consensus_params_tb
+                        magnitudes_tb, res, self.consensus_params_tb
                     ):
                         consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
 
