@@ -180,7 +180,9 @@ class Local_EFSGD(Optimizer):
                     buffers = TensorBuffer(compressed)
                     print('BEFORE', directions_tb.buffer)
                     dist.broadcast(directions_tb.buffer if self.rank == 0 else buffers.buffer, 0)
+                    print('INTERMEZZO', directions_tb.buffer, buffers.buffer)
                     dist.broadcast(buffers.buffer if self.rank == 0 else directions_tb.buffer, 1)
+                    print('INTERMEZZO II', directions_tb.buffer, buffers.buffer)
                     res = []
                     for  sign, pad, buffer in zip(
                         local_sign, paddings, buffers
