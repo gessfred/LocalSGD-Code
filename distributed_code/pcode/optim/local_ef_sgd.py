@@ -195,6 +195,7 @@ class Local_EFSGD(Optimizer):
                     tmp.buffer = self.world_aggregator._agg(
                         tmp.buffer, "avg", distributed=self.conf.distributed
                     )
+                    print('SIGN', TensorBuffer(local_sign).buffer)
                     print('EXPECTED', tmp.buffer)
                     print('AFTER', TensorBuffer(res).buffer)
                     #print((tmp.buffer - TensorBuffer(res).buffer))
