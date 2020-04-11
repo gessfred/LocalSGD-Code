@@ -162,7 +162,7 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
-                        d, p = quantize_gpu(memory.data, 1)
+                        d, p = quantize_gpu(memory, 1)
                         compressed.append(d)
                         paddings.append(p)
                         # update memory.
@@ -189,6 +189,7 @@ class Local_EFSGD(Optimizer):
                     ):
                         recv_ed = unquantize_gpu(buffer, pad, 1)
                         #print(sign.size(), recv_ed.size(), sign, recv_ed)
+                        print('RES', sign, pad)
                         res.append((recv_ed.view(sign.size()) + sign) / 2)
                     #res_tb = TensorBuffer(res)
                     """tmp = TensorBuffer(local_sign)
