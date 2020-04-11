@@ -11,6 +11,7 @@ from pcode.utils.sparsification import get_n_bits
 from pcode.utils.tensor_buffer import TensorBuffer
 
 from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
+import sys
 
 def send(tensor, dst):
 	rank = dist.get_rank()
@@ -214,6 +215,7 @@ class Local_EFSGD(Optimizer):
                 # consistent the local models by assigning the consensus params.
                 self.consensus_params_tb.unpack(params)
                 n_bits = get_n_bits(directions_tb.buffer) + get_n_bits(magnitudes_tb.buffer)
+                sys.exit(-1)
             else:
                 n_bits = 0
             return n_bits
