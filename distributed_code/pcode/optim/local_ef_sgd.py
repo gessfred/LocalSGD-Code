@@ -179,11 +179,8 @@ class Local_EFSGD(Optimizer):
                     # sync the directions.
                     directions_tb = TensorBuffer(compressed)
                     buffers = TensorBuffer(compressed)
-                    print('BEFORE', directions_tb.buffer)
                     dist.broadcast(directions_tb.buffer if self.rank == 0 else buffers.buffer, 0)
-                    print('INTERMEZZO', directions_tb.buffer, buffers.buffer)
                     dist.broadcast(buffers.buffer if self.rank == 0 else directions_tb.buffer, 1)
-                    print('INTERMEZZO II', directions_tb.buffer, buffers.buffer)
                     res = []
                     for  sign, pad, buffer in zip(
                         local_sign, paddings, buffers
@@ -195,9 +192,7 @@ class Local_EFSGD(Optimizer):
                     tmp.buffer = self.world_aggregator._agg(
                         tmp.buffer, "avg", distributed=self.conf.distributed
                     )
-                    print('SIGN', TensorBuffer(local_sign).buffer)
-                    print('EXPECTED', tmp.buffer)
-                    print('AFTER', TensorBuffer(res).buffer)
+                    print('ERROR', (TensorBuffer(res).buffer - tmp.buffer).norm(p=1))
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
