@@ -191,10 +191,11 @@ class Local_EFSGD(Optimizer):
                         recv_ed = unquantize_gpu(buffer, pad, 1)
                         res.append((recv_ed.view(sign.size()) + sign) / 2)
                     #res_tb = TensorBuffer(res)
-                    """tmp = TensorBuffer(local_sign)
+                    tmp = TensorBuffer(local_sign)
                     tmp.buffer = self.world_aggregator._agg(
                         tmp.buffer, "avg", distributed=self.conf.distributed
-                    )"""
+                    )
+                    print('EXPECTED', tmp.buffer)
                     print('AFTER', TensorBuffer(res).buffer)
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
