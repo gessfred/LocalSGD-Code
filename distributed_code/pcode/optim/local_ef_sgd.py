@@ -183,10 +183,12 @@ class Local_EFSGD(Optimizer):
                     dist.broadcast(directions_tb.buffer if self.rank == 0 else buffers.buffer, 0)
                     dist.broadcast(buffers.buffer if self.rank == 0 else directions_tb.buffer, 1)
                     res = []
+                    sub = []
                     for  sign, pad, buffer in zip(
                         local_sign, paddings, buffers
                     ):
                         recv_ed = unquantize_gpu(buffer, pad, 1)
+                        sub.append(recv_ed.view(sign.size()))
                         res.append((recv_ed.view(sign.size()) + sign) / 2)
                     #res_tb = TensorBuffer(res)
                     tmp = TensorBuffer(local_sign)
@@ -196,8 +198,9 @@ class Local_EFSGD(Optimizer):
                     torch.set_printoptions(profile="full")
                     print('INPUT', directions_tb.buffer[:30])
                     print('SIGN', TensorBuffer(local_sign).buffer[:30])
-                    print('RES1', TensorBuffer(res).buffer[:30])
-                    print('RES2', tmp.buffer[:30])
+                    print('BUFFER', TensorBuffer(sub).buffer[:30])
+                    print('RES-us', TensorBuffer(res).buffer[:30])
+                    print('RES-baseline', tmp.buffer[:30])
                     print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
