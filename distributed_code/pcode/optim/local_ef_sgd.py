@@ -193,8 +193,9 @@ class Local_EFSGD(Optimizer):
                         local_sign, paddings, buffers
                     ):
                         recv_ed = unquantize_gpu(buffer, pad, 1)
-                        sub.append(recv_ed.view(sign.size()))
-                        res.append((recv_ed.view(sign.size()) + sign) / 2)
+                        sub.append(recv_ed)
+                        print(sign.size())
+                        res.append((recv_ed + sign) / 2)
                     #res_tb = TensorBuffer(res)
                     tmp = TensorBuffer(local_sign)
                     tmp.buffer = self.world_aggregator._agg(
