@@ -164,10 +164,11 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
-                        d, p = quantize_gpu(memory, 1)
+                        d, p = quantize_gpu(memory.clone(), 1)
                         compressed.append(d)
                         paddings.append(p)
                         copies.append(memory.clone())
+                        torch.cuda.synchronize()
                         # update memory.
                         memory.data.copy_(memory - _local_scale * _local_sign)
                         # store local scales and local sign.
