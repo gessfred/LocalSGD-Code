@@ -173,7 +173,7 @@ class Local_EFSGD(Optimizer):
                         # store local scales and local sign.
                         local_scale.append(_local_scale)
                         local_sign.append(_local_sign)
-                    for _local_scale, local_sign in zip(local_scale, local_sign)
+                    for _local_scale, local_sign in zip(local_scale, local_sign):
                         # update memory.
                         memory.data.copy_(memory - _local_scale * _local_sign)
                         after.append(memory.clone())
