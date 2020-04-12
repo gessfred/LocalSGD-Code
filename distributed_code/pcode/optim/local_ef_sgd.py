@@ -197,7 +197,7 @@ class Local_EFSGD(Optimizer):
                     print('INPUT', directions_tb.buffer[:30])
                     print('SIGN', TensorBuffer(local_sign).buffer[:30])
                     print('RES1', TensorBuffer(res).buffer[:30])
-                    print('RES2', tmp.buffer)
+                    print('RES2', tmp.buffer[:30])
                     print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
