@@ -197,6 +197,10 @@ class Local_EFSGD(Optimizer):
                     )
                     torch.set_printoptions(profile="full")
                     print('INPUT', directions_tb.buffer[:30])
+                    cst = []
+                    for pad, inp in zip(paddings, directions_tb):
+                        cst.append(unquantize_gpu(inp, pad, 1))
+                    print('REAL-INPUT', TensorBuffer(cst).buffer[:30])
                     print('SIGN', TensorBuffer(local_sign).buffer[:30])
                     print('BUFFER', TensorBuffer(sub).buffer[:30])
                     print('RES-us', TensorBuffer(res).buffer[:30])
