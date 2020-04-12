@@ -156,6 +156,7 @@ class Local_EFSGD(Optimizer):
                     local_scale, local_sign = [], []
                     paddings = []
                     compressed = []
+                    copies = []
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
@@ -166,6 +167,7 @@ class Local_EFSGD(Optimizer):
                         d, p = quantize_gpu(memory, 1)
                         compressed.append(d)
                         paddings.append(p)
+                        copies.append(memory.clone())
                         # update memory.
                         memory.data.copy_(memory - _local_scale * _local_sign)
                         # store local scales and local sign.
@@ -200,6 +202,7 @@ class Local_EFSGD(Optimizer):
                     cst = []
                     for pad, inp in zip(paddings, directions_tb):
                         cst.append(unquantize_gpu(inp, pad, 1))
+                    print('MEM', TensorBuffer(copies).buffer[:30])
                     print('REAL-INPUT', TensorBuffer(cst).buffer[:30])
                     print('SIGN', TensorBuffer(local_sign).buffer[:30])
                     print('BUFFER', TensorBuffer(sub).buffer[:30])
