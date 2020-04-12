@@ -193,7 +193,9 @@ class Local_EFSGD(Optimizer):
                     tmp.buffer = self.world_aggregator._agg(
                         tmp.buffer, "avg", distributed=self.conf.distributed
                     )
+                    torch.set_printoptions(profile="full")
                     print('INPUT', directions_tb.buffer[:30])
+                    print('SIGN', TensorBuffer(local_sign).buffer[:30])
                     print('RES1', TensorBuffer(res).buffer[:30])
                     print('RES2', tmp.buffer)
                     print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
