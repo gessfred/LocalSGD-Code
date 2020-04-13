@@ -165,7 +165,7 @@ class Local_EFSGD(Optimizer):
                         torch.cuda.synchronize()
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
-                        d, p = quantize_gpu(memory.view(-1).clone(), 1)
+                        d, p = quantize_gpu(memory, 1)
                         compressed.append(d)
                         paddings.append(p)
                         copies.append(memory.view(-1).clone())
@@ -182,43 +182,23 @@ class Local_EFSGD(Optimizer):
                 # sync and decompress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     # sync the directions.
-                    directions_tb = TensorBuffer(compressed)
-                    buffers = TensorBuffer(compressed)
                     #simple exchange
-                    way1 = directions_tb.buffer if self.rank == 0 else buffers.buffer
-                    way2 = buffers.buffer if self.rank == 0 else directions_tb.buffer
-                    if self.rank == 0:
-                        print('[{}]sending'.format(self.rank), way1.type(), way1[:30])
-                    else:
-                        print('[{}]sending'.format(self.rank), way2.type(), way2[:30])
-                    dist.broadcast(way1, 0)
-                    dist.broadcast(way2, 1)
-                    print(way1.type(), way2.type(), 'types after')
                     res = []
-                    sub = []
-                    for  sign, pad, buffer in zip(
-                        local_sign, paddings, buffers
-                    ):
-                        print(buffer.type())
-                        recv_ed = unquantize_gpu(buffer.to(torch.int32), pad, 1)
-                        sub.append(recv_ed.view(sign.size()))
-                        res.append((recv_ed.view(sign.size()) + sign) / 2)
+                    for direction, padding, sign in zip(compressed, paddings, local_sign):
+                        buffer = direction.clone()
+                        way1 = direction if self.rank == 0 else buffer
+                        way2 = buffer if self.rank == 0 else direction
+                        dist.broadcast(way1, 0)
+                        dist.broadcast(way2, 1)
+                        recv = unquantize_gpu(buffer, padding, 1)
+                        res.append((recv.view(sign.size()) + sign) / 2)
+                        
+                    
                     #res_tb = TensorBuffer(res)
                     tmp = TensorBuffer(local_sign)
                     tmp.buffer = self.world_aggregator._agg(
                         tmp.buffer, "avg", distributed=self.conf.distributed
                     )
-                    torch.set_printoptions(profile="full")
-                    print('INPUT', directions_tb.buffer[:30])
-                    cst = []
-                    for pad, inp in zip(paddings, directions_tb):
-                        cst.append(unquantize_gpu(inp, pad, 1))
-                    print('MEM', TensorBuffer(copies).buffer[:30])
-                    print('REAL-INPUT', TensorBuffer(cst).buffer[:30])
-                    print('SIGN', TensorBuffer(local_sign).buffer[:30])
-                    print('BUFFER', TensorBuffer(sub).buffer[:30])
-                    print('RES-us', TensorBuffer(res).buffer[:30])
-                    print('RES-baseline', tmp.buffer[:30])
                     print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
@@ -236,7 +216,7 @@ class Local_EFSGD(Optimizer):
 
                 # consistent the local models by assigning the consensus params.
                 self.consensus_params_tb.unpack(params)
-                n_bits = get_n_bits(directions_tb.buffer) + get_n_bits(magnitudes_tb.buffer)
+                n_bits = get_n_bits(magnitudes_tb.buffer)
                 sys.exit(-1)
             else:
                 n_bits = 0
