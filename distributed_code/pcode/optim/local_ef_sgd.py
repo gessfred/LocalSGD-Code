@@ -240,6 +240,7 @@ class Local_EFSGD(Optimizer):
 
                 # consistent the local models by assigning the consensus params.
                 self.consensus_params_tb.unpack(params)
+                sys.exit(-1)
                 n_bits = get_n_bits(magnitudes_tb.buffer)
             else:
                 n_bits = 0
