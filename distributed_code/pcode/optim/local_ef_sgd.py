@@ -63,6 +63,36 @@ def centralized_allreduce(tensor, timer):
     s = torch.sign(tensor)
     tensor[:] = (recv_ed + s) / 2
 
+class IntTensorBuffer:
+    """
+    Packs multiple tensors into one flat buffer for efficient
+    intra-worker communication.
+    """
+
+    def __init__(self, tensors, use_cuda=True):
+        indices = [0]
+        for tensor in tensors:
+            new_end = indices[-1] + tensor.nelement()
+            indices.append(new_end)
+
+        self._start_idx = indices[:-1]
+        self._end_idx = indices[1:]
+        self._tensors_len = len(tensors)
+        self._tensors_sizes = [x.size() for x in tensors]
+
+        self.buffer = torch.cat(list(map(lambda tensor: tensor.view(-1), tensors)))  # copies
+
+    def __getitem__(self, index):
+        return self.buffer[self._start_idx[index] : self._end_idx[index]].view(
+            self._tensors_sizes[index]
+        )
+
+    def __len__(self):
+        return self._tensors_len
+
+    def nelement(self):
+        return self.buffer.nelement()
+
 class Local_EFSGD(Optimizer):
     def __init__(
         self,
@@ -179,14 +209,21 @@ class Local_EFSGD(Optimizer):
                     # sync the directions.
                     #simple exchange
                     res = []
-                    for direction, padding, sign in zip(compressed, paddings, local_sign):
-                        buffer = direction.clone()
-                        way1 = direction if self.rank == 0 else buffer
-                        way2 = buffer if self.rank == 0 else direction
-                        dist.broadcast(way1, 0)
-                        dist.broadcast(way2, 1)
+                    directions_tb = IntTensorBuffer(compressed)
+                    copy = IntTensorBuffer(compressed)
+                    way1 = directions_tb.buffer if self.rank == 0 else copy.buffer
+                    way2 = copy.buffer if self.rank == 0 else directions_tb.buffer
+                    dist.broadcast(way1, 0)
+                    dist.broadcast(way2, 1)
+                    for buffer, padding, sign in zip(copy, paddings, local_sign):
                         recv = unquantize_gpu(buffer, padding, 1)
                         res.append((recv.view(sign.size()) + sign) / 2)
+                    tmp = TensorBuffer(local_sign)
+                    tmp.buffer = self.world_aggregator._agg(
+                        tmp.buffer, "avg", distributed=self.conf.distributed
+                    )
+                    torch.set_printoptions(profile="full")
+                    print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
