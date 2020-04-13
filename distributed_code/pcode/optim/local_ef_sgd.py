@@ -191,14 +191,16 @@ class Local_EFSGD(Optimizer):
                         print('[{}]sending'.format(self.rank), way1.type(), way1[:30])
                     else:
                         print('[{}]sending'.format(self.rank), way2.type(), way2[:30])
-                    dist.broadcast(way1.type(torch.FloatTensor), 0)
-                    dist.broadcast(way2.type(torch.FloatTensor), 1)
+                    dist.broadcast(way1, 0)
+                    dist.broadcast(way2, 1)
+                    print(way1.type(), way2.type(), 'types after')
                     res = []
                     sub = []
                     for  sign, pad, buffer in zip(
                         local_sign, paddings, buffers
                     ):
-                        recv_ed = unquantize_gpu(buffer.type(torch.IntTensor), pad, 1)
+                        print(buffer.type())
+                        recv_ed = unquantize_gpu(buffer.to(torch.int32), pad, 1)
                         sub.append(recv_ed.view(sign.size()))
                         res.append((recv_ed.view(sign.size()) + sign) / 2)
                     #res_tb = TensorBuffer(res)
