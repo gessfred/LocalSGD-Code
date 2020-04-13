@@ -185,8 +185,14 @@ class Local_EFSGD(Optimizer):
                     directions_tb = TensorBuffer(compressed)
                     buffers = TensorBuffer(compressed)
                     #simple exchange
-                    dist.broadcast(directions_tb.buffer if self.rank == 0 else buffers.buffer, 0)
-                    dist.broadcast(buffers.buffer if self.rank == 0 else directions_tb.buffer, 1)
+                    way1 = directions_tb.buffer if self.rank == 0 else buffers.buffer
+                    way2 = buffers.buffer if self.rank == 0 else directions_tb.buffer
+                    if rank == 0:
+                        print('[{}]sending'.format(self.rank), way1[:30])
+                    else:
+                        print('[{}]sending'.format(self.rank), way2[:30])
+                    dist.broadcast(way1, 0)
+                    dist.broadcast(way2, 1)
                     res = []
                     sub = []
                     for  sign, pad, buffer in zip(
