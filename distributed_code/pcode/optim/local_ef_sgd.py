@@ -169,7 +169,7 @@ class Local_EFSGD(Optimizer):
                         compressed.append(d)
                         paddings.append(p)
                         copies.append(memory.view(-1).clone())
-                        print(unquantize_gpu(d, p, 1).view(-1)[:3], 'vs.', _local_sign.view(-1)[:3], 'from', memory.data.view(-1)[:3])
+                        #print(unquantize_gpu(d, p, 1).view(-1)[:3], 'vs.', _local_sign.view(-1)[:3], 'from', memory.data.view(-1)[:3])
                         torch.cuda.synchronize()
                         # store local scales and local sign.
                         local_scale.append(_local_scale)
