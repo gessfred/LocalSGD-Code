@@ -162,6 +162,7 @@ class Local_EFSGD(Optimizer):
                     ):
                         # add memory to the model difference.
                         memory.data.copy_(consensus_param - param + memory)
+                        torch.cuda.synchronize()
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
                         d, p = quantize_gpu(memory.view(-1).clone(), 1)
