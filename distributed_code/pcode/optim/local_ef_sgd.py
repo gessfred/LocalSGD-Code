@@ -156,21 +156,16 @@ class Local_EFSGD(Optimizer):
                     local_scale, local_sign = [], []
                     paddings = []
                     compressed = []
-                    copies = []
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
                         # add memory to the model difference.
                         memory.data.copy_(consensus_param - param + memory)
-                        torch.cuda.synchronize()
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
                         d, p = quantize_gpu(memory, 1)
                         compressed.append(d)
                         paddings.append(p)
-                        copies.append(memory.view(-1).clone())
-                        #print(unquantize_gpu(d, p, 1).view(-1)[:3], 'vs.', _local_sign.view(-1)[:3], 'from', memory.data.view(-1)[:3])
-                        torch.cuda.synchronize()
                         # store local scales and local sign.
                         local_scale.append(_local_scale)
                         local_sign.append(_local_sign)
@@ -192,14 +187,6 @@ class Local_EFSGD(Optimizer):
                         dist.broadcast(way2, 1)
                         recv = unquantize_gpu(buffer, padding, 1)
                         res.append((recv.view(sign.size()) + sign) / 2)
-                        
-                    
-                    #res_tb = TensorBuffer(res)
-                    tmp = TensorBuffer(local_sign)
-                    tmp.buffer = self.world_aggregator._agg(
-                        tmp.buffer, "avg", distributed=self.conf.distributed
-                    )
-                    print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
@@ -217,7 +204,6 @@ class Local_EFSGD(Optimizer):
                 # consistent the local models by assigning the consensus params.
                 self.consensus_params_tb.unpack(params)
                 n_bits = get_n_bits(magnitudes_tb.buffer)
-                sys.exit(-1)
             else:
                 n_bits = 0
             return n_bits
