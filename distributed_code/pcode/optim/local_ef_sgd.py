@@ -218,12 +218,12 @@ class Local_EFSGD(Optimizer):
                     for buffer, padding, sign in zip(copy, paddings, local_sign):
                         recv = unquantize_gpu(buffer, padding, 1)
                         res.append((recv.view(sign.size()) + sign) / 2)
-                    tmp = TensorBuffer(local_sign)
-                    tmp.buffer = self.world_aggregator._agg(
-                        tmp.buffer, "avg", distributed=self.conf.distributed
-                    )
-                    torch.set_printoptions(profile="full")
-                    print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
+                    #tmp = TensorBuffer(local_sign)
+                    #tmp.buffer = self.world_aggregator._agg(
+                    #    tmp.buffer, "avg", distributed=self.conf.distributed
+                    #)
+                    #torch.set_printoptions(profile="full")
+                    #print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
                     #print((tmp.buffer - TensorBuffer(res).buffer))
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
@@ -240,7 +240,6 @@ class Local_EFSGD(Optimizer):
 
                 # consistent the local models by assigning the consensus params.
                 self.consensus_params_tb.unpack(params)
-                sys.exit(-1)
                 n_bits = get_n_bits(magnitudes_tb.buffer)
             else:
                 n_bits = 0
