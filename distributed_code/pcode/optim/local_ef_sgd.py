@@ -193,9 +193,9 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
-                        d, p = quantize_gpu(memory, 1)
-                        compressed.append(d)
-                        paddings.append(p)
+                        #d, p = quantize_gpu(memory, 1)
+                        #compressed.append(d)
+                        #paddings.append(p)
                         # store local scales and local sign.
                         local_scale.append(_local_scale)
                         local_sign.append(_local_sign)
@@ -209,15 +209,15 @@ class Local_EFSGD(Optimizer):
                     # sync the directions.
                     #simple exchange
                     res = []
-                    directions_tb = IntTensorBuffer(compressed)
-                    copy = IntTensorBuffer(compressed)
-                    way1 = directions_tb.buffer if self.rank == 0 else copy.buffer
-                    way2 = copy.buffer if self.rank == 0 else directions_tb.buffer
-                    dist.broadcast(way1, 0)
-                    dist.broadcast(way2, 1)
-                    for buffer, padding, sign in zip(copy, paddings, local_sign):
-                        recv = unquantize_gpu(buffer, padding, 1)
-                        res.append((recv.view(sign.size()) + sign) / 2)
+                    #directions_tb = IntTensorBuffer(compressed)
+                    #copy = IntTensorBuffer(compressed)
+                    #way1 = directions_tb.buffer if self.rank == 0 else copy.buffer
+                    #way2 = copy.buffer if self.rank == 0 else directions_tb.buffer
+                    #dist.broadcast(way1, 0)
+                    #dist.broadcast(way2, 1)
+                    #for buffer, padding, sign in zip(copy, paddings, local_sign):
+                    #    recv = unquantize_gpu(buffer, padding, 1)
+                    #    res.append((recv.view(sign.size()) + sign) / 2)
                     #tmp = TensorBuffer(local_sign)
                     #tmp.buffer = self.world_aggregator._agg(
                     #    tmp.buffer, "avg", distributed=self.conf.distributed
@@ -232,11 +232,11 @@ class Local_EFSGD(Optimizer):
                     )
 
                 # unpack the synced info and update the consensus params.
-                with kargs["timer"]("update_consensus", epoch=self.conf.epoch_):
-                    for update_magnitude, update_direction, consensus_param in zip(
-                        magnitudes_tb, res, self.consensus_params_tb
-                    ):
-                        consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
+                #with kargs["timer"]("update_consensus", epoch=self.conf.epoch_):
+                #    for update_magnitude, update_direction, consensus_param in zip(
+                #        magnitudes_tb, res, self.consensus_params_tb
+                #    ):
+                #        consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
 
                 # consistent the local models by assigning the consensus params.
                 self.consensus_params_tb.unpack(params)
