@@ -93,7 +93,7 @@ class IntTensorBuffer:
     def nelement(self):
         return self.buffer.nelement()
 
-class TB(TensorBuffer):
+class TB():
     def __init__(self, ref_tb, buffer):
         print(ref_tb.buffer.size(), buffer.size())
         self._start_idx = ref_tb._start_idx
