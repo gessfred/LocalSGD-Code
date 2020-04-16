@@ -193,9 +193,9 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
                         _local_scale, _local_sign = scaled_sign(memory)
-                        #d, p = quantize_gpu(memory, 1)
-                        #compressed.append(d)
-                        #paddings.append(p)
+                        d, p = quantize_gpu(memory, 1)
+                        compressed.append(d)
+                        paddings.append(p)
                         # store local scales and local sign.
                         local_scale.append(_local_scale)
                         local_sign.append(_local_sign)
