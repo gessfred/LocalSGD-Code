@@ -74,7 +74,7 @@ class IntTensorBuffer:
         for tensor in tensors:
             new_end = indices[-1] + tensor.nelement()
             indices.append(new_end)
-
+        
         self._start_idx = indices[:-1]
         self._end_idx = indices[1:]
         self._tensors_len = len(tensors)
@@ -92,6 +92,14 @@ class IntTensorBuffer:
 
     def nelement(self):
         return self.buffer.nelement()
+
+class TB(TensorBuffer):
+    def __init__(self, ref_tb, buffer):
+        self._start_idx = ref_tb._start_idx
+        self._end_idx = ref_tb._end_idx
+        self._tensors_len = ref_tb._tensors_len
+        self._tensors_sizes = ref_tb._tensors_sizes
+        self.buffer = buffer
 
 class Local_EFSGD(Optimizer):
     def __init__(
@@ -184,15 +192,19 @@ class Local_EFSGD(Optimizer):
                 with kargs['timer']('memory_and_compress', epoch=self.conf.epoch_):
                     # get the params difference w.r.t. previous synced model.
                     local_scale, local_sign = [], []
-                    paddings = []
-                    compressed = []
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
                         # add memory to the model difference.
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
-                    d, p = quantize_gpu(self.memory_tb.buffer, 1)
+                    local_direction, padding = quantize_gpu(self.memory_tb.buffer, 1)
+                    buffer = local_direction.clone()
+                    way1 = local_direction if self.rank == 0 else buffer
+                    way2 = buffer if self.rank == 0 else local_direction
+                    dist.broadcast(way1, 0)
+                    dist.broadcast(way2, 1)
+                    global_direction = TB(self.memory_tb, unquantize_gpu(buffer, padding, 1))
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
@@ -233,13 +245,12 @@ class Local_EFSGD(Optimizer):
                     magnitudes_tb.buffer = self.world_aggregator._agg(
                         magnitudes_tb.buffer, "avg", distributed=self.conf.distributed
                     )
-
                 # unpack the synced info and update the consensus params.
-                #with kargs["timer"]("update_consensus", epoch=self.conf.epoch_):
-                #    for update_magnitude, update_direction, consensus_param in zip(
-                #        magnitudes_tb, res, self.consensus_params_tb
-                #    ):
-                #        consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
+                with kargs["timer"]("update_consensus", epoch=self.conf.epoch_):
+                    for update_magnitude, update_direction, consensus_param in zip(
+                        magnitudes_tb, global_direction, self.consensus_params_tb
+                    ):
+                        consensus_param.add_(-1.0, update_direction.mul(update_magnitude))
 
                 # consistent the local models by assigning the consensus params.
                 self.consensus_params_tb.unpack(params)
