@@ -215,8 +215,6 @@ class Local_EFSGD(Optimizer):
                     way2 = buffer if self.rank == 0 else local_direction
                     dist.broadcast(way1, 0)
                     dist.broadcast(way2, 1)
-                    global_direction = TB(self.memory_tb, (unquantize_gpu(buffer, padding, 1) + TensorBuffer(local_sign).buffer) / 2)
-                    print(global_direction)
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
@@ -231,6 +229,8 @@ class Local_EFSGD(Optimizer):
 
                     # concat the update magnitude and directions.
 
+                    global_direction = TB(self.memory_tb, (unquantize_gpu(buffer, padding, 1) + TensorBuffer(local_sign).buffer) / 2)
+                    print(global_direction)
                 # sync and decompress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     # sync the directions.
