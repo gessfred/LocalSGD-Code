@@ -95,11 +95,22 @@ class IntTensorBuffer:
 
 class TB(TensorBuffer):
     def __init__(self, ref_tb, buffer):
+        print(ref_tb.buffer.size(), buffer.size())
         self._start_idx = ref_tb._start_idx
         self._end_idx = ref_tb._end_idx
         self._tensors_len = ref_tb._tensors_len
         self._tensors_sizes = ref_tb._tensors_sizes
         self.buffer = buffer
+    def __getitem__(self, index):
+        return self.buffer[self._start_idx[index] : self._end_idx[index]].view(
+            self._tensors_sizes[index]
+        )
+
+    def __len__(self):
+        return self._tensors_len
+
+    def nelement(self):
+        return self.buffer.nelement()
 
 class Local_EFSGD(Optimizer):
     def __init__(
