@@ -95,7 +95,6 @@ class IntTensorBuffer:
 
 class TB():
     def __init__(self, ref_tb, buffer):
-        print(ref_tb.buffer.size(), buffer.size())
         self._start_idx = ref_tb._start_idx
         self._end_idx = ref_tb._end_idx
         self._tensors_len = ref_tb._tensors_len
@@ -209,53 +208,23 @@ class Local_EFSGD(Optimizer):
                         # add memory to the model difference.
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
+                with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     local_direction, padding = quantize_gpu(self.memory_tb.buffer, 1)
                     buffer = local_direction.clone()
                     way1 = local_direction if self.rank == 0 else buffer
                     way2 = buffer if self.rank == 0 else local_direction
                     dist.broadcast(way1, 0)
                     dist.broadcast(way2, 1)
+                with kargs['timer']('memory_and_compress', epoch=self.conf.epoch_):
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
-                        #compressed.append(d)
-                        #paddings.append(p)
-                        # store local scales and local sign.
                         _local_scale, _local_sign = scaled_sign(memory)
                         local_scale.append(_local_scale)
                         local_sign.append(_local_sign)
-                        # update memory.
                         memory.data.copy_(memory - _local_scale * _local_sign)
-
-                    # concat the update magnitude and directions.
-                    #res_tb = TensorBuffer(res)
-                    tmp = TensorBuffer(local_sign)
-                    tmp.buffer = self.world_aggregator._agg(
-                        tmp.buffer, "avg", distributed=self.conf.distributed
-                    )
-                    global_direction = TB(self.memory_tb, (unquantize_gpu(buffer, padding, 1) + TensorBuffer(local_sign).buffer) / 2)
-                    print(global_direction.buffer - tmp.buffer)
-                # sync and decompress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
-                    # sync the directions.
-                    #simple exchange
-                    res = []
-                    #directions_tb = IntTensorBuffer(compressed)
-                    #copy = IntTensorBuffer(compressed)
-                    #way1 = directions_tb.buffer if self.rank == 0 else copy.buffer
-                    #way2 = copy.buffer if self.rank == 0 else directions_tb.buffer
-                    #dist.broadcast(way1, 0)
-                    #dist.broadcast(way2, 1)
-                    #for buffer, padding, sign in zip(copy, paddings, local_sign):
-                    #    recv = unquantize_gpu(buffer, padding, 1)
-                    #    res.append((recv.view(sign.size()) + sign) / 2)
-                    #tmp = TensorBuffer(local_sign)
-                    #tmp.buffer = self.world_aggregator._agg(
-                    #    tmp.buffer, "avg", distributed=self.conf.distributed
-                    #)
-                    #torch.set_printoptions(profile="full")
-                    #print('ERROR', (TensorBuffer(res).buffer - tmp.buffer)[:30])
-                    #print((tmp.buffer - TensorBuffer(res).buffer))
+                    global_direction = TB(self.memory_tb, (unquantize_gpu(buffer, padding, 1) + TensorBuffer(local_sign).buffer) / 2)
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
                     magnitudes_tb.buffer = self.world_aggregator._agg(
