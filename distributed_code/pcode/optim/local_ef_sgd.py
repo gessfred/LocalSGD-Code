@@ -228,9 +228,13 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(memory - _local_scale * _local_sign)
 
                     # concat the update magnitude and directions.
-
+                    #res_tb = TensorBuffer(res)
+                    tmp = TensorBuffer(local_sign)
+                    tmp.buffer = self.world_aggregator._agg(
+                        tmp.buffer, "avg", distributed=self.conf.distributed
+                    )
                     global_direction = TB(self.memory_tb, (unquantize_gpu(buffer, padding, 1) + TensorBuffer(local_sign).buffer) / 2)
-                    print(global_direction)
+                    print(global_direction.buffer - tmp.buffer)
                 # sync and decompress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     # sync the directions.
