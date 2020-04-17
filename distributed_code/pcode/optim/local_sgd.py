@@ -87,10 +87,11 @@ class LocalSGD(Optimizer):
                     self.param_groups, self.param_names, is_get_grad=False
                 )
                 params_tb = TensorBuffer(params)
-
+                
                 # get params_diff.
                 param_diff = self.consensus_params_tb.buffer - params_tb.buffer
                 # sync the directions.
+                print(param_diff.size())
                 param_diff = self.world_aggregator._agg(
                     param_diff, "avg", distributed=self.conf.distributed
                 )
