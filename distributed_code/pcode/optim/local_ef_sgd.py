@@ -12,56 +12,45 @@ from pcode.utils.tensor_buffer import TensorBuffer
 
 from lib import quantize_gpu, unquantize_gpu, CompressedTensorBuffer
 import sys
+import bit2byte
+def element_num(size):
+    num = 1
+    for i in range(len(size)):
+        num *= size[i]
+    return num
+def _pack(src_tensor):
+    dev = src_tensor.device
+    src_tensor = torch.sign(src_tensor)
+    src_tensor_size = src_tensor.size()
+    src_tensor = src_tensor.view(-1)
+    src_len = len(src_tensor)
+    add_elm = 32 - (src_len % 32)
+    if src_len % 32 == 0:
+        add_elm = 0
+    new_tensor = torch.zeros([add_elm], dtype=torch.float32, device=dev)
+    src_tensor = torch.cat((src_tensor, new_tensor), 0)
+    src_tensor = src_tensor.view(32,-1)
+    src_tensor = src_tensor.to(dtype=torch.int32)
+    dst_tensor = bit2byte.packing(src_tensor)
+    dst_tensor = dst_tensor.to(dtype=torch.int32)
+    return dst_tensor, src_tensor_size
 
-def send(tensor, dst):
-	rank = dist.get_rank()
-	#private = dist.new_group([rank, dst])
-	dist.broadcast(tensor, rank)
-
-def recv(tensor, src):
-	#private = dist.new_group([src, dist.get_rank()])
-	dist.broadcast(tensor, src)
-
-def allreduce(tensor):
-    rank = dist.get_rank()
-    N = dist.get_world_size()
-    chunks = list(tensor.view(N, -1))
-    compressed_chunks = [None]*N
-    chunks[rank][:] = torch.sign(chunks[rank])
-    compressed_chunk, padding = quantize_gpu(chunks[(rank+1)%2], 1)
-    compressed_chunks[(rank+1)%2] = compressed_chunk
-    buf = torch.zeros(compressed_chunk.size(), device=tensor.device)
-    if rank == 0:
-        send(compressed_chunk, 1)
-        recv(buf, 1)
-        chunks[rank] += unquantize_gpu(buf, padding, 1)
-
-    elif rank == 1:
-        recv(buf, 0)
-        chunks[rank] += unquantize_gpu(buf, padding, 1)
-        send(compressed_chunk, 0)    
-    compressed_chunks[rank], padding = quantize_gpu(chunks[rank], 1)
-    dist.all_gather(compressed_chunks, compressed_chunks[rank])
-    chunks[(rank+1)%2] = unquantize_gpu(compressed_chunks[(rank+1)%2], padding, 1)
-    chunks[rank] /= N
-    
-    tensor[:] = torch.stack(chunks).view(tensor.size())
-
-def centralized_allreduce(tensor, timer):
-    rank = dist.get_rank()
-    N = dist.get_world_size()
-    to_send, padding = quantize_gpu(tensor, 1)
-    buf = to_send.clone()
-    with timer('exchange'):
-        if rank == 0:
-            recv(buf, 1)
-            send(to_send, 1)
-        else:
-            send(to_send, 0)
-            recv(buf, 0)
-    recv_ed = unquantize_gpu(buf, padding, 1)
-    s = torch.sign(tensor)
-    tensor[:] = (recv_ed + s) / 2
+def _unpack(src_tensor, src_tensor_size):
+    dev = src_tensor.device
+    src_element_num = element_num(src_tensor_size)
+    add_elm = 32 - (src_element_num % 32)
+    if src_element_num % 32 == 0:
+        add_elm = 0
+    src_tensor = src_tensor.int()
+    new_tensor = torch.ones(src_element_num + add_elm, device=dev, dtype=torch.int32)
+    new_tensor = new_tensor.view(32,-1)
+    new_tensor = bit2byte.unpacking(src_tensor,new_tensor)
+    new_tensor = new_tensor.view(-1)
+    new_tensor = new_tensor[:src_element_num]
+    new_tensor = new_tensor.view(src_tensor_size)
+    new_tensor = - new_tensor.add_(-1)
+    new_tensor = new_tensor.float()
+    return new_tensor
 
 class IntTensorBuffer:
     """
@@ -111,6 +100,13 @@ class TB():
     def nelement(self):
         return self.buffer.nelement()
 
+def signum(tensor):
+    compressed, padding = _pack(tensor)
+    gather_list = [compressed.clone() for i in range(dist.get_world_size())]
+    dist.all_gather(gather_list, compressed)
+    gather_list = list(map(lambda recv: _unpack(recv, padding), gather_list))
+    return torch.sum(torch.cat(gather_list)) / dist.get_world_size()
+
 class Local_EFSGD(Optimizer):
     def __init__(
         self,
@@ -140,7 +136,6 @@ class Local_EFSGD(Optimizer):
         self.neighbors_info = conf.graph.get_neighborhood()
         self.local_step = conf.local_step
         self.turn_on_local_step_from_epoch = conf.turn_on_local_step_from
-
         self.bits = conf.compress_width
 
         # define the aggregator.
@@ -205,16 +200,10 @@ class Local_EFSGD(Optimizer):
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
                     ):
-                        # add memory to the model difference.
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
-                    local_direction, padding = quantize_gpu(self.memory_tb.buffer, 1)
-                    buffer = local_direction.clone()
-                    way1 = local_direction if self.rank == 0 else buffer
-                    way2 = buffer if self.rank == 0 else local_direction
-                    dist.broadcast(way1, 0)
-                    dist.broadcast(way2, 1)
+                    direction = signum(self.memory_tb.buffer)
                 with kargs['timer']('memory_and_compress', epoch=self.conf.epoch_):
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
@@ -224,7 +213,12 @@ class Local_EFSGD(Optimizer):
                         local_sign.append(_local_sign)
                         memory.data.copy_(memory - _local_scale * _local_sign)
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
-                    global_direction = TB(self.memory_tb, (unquantize_gpu(buffer, padding, 1) + TensorBuffer(local_sign).buffer) / 2)
+                    global_direction = TB(self.memory_tb, direction)
+                    tmp = TensorBuffer(local_sign)
+                    tmp.buffer = self.world_aggregator._agg(
+                        tmp.buffer, "avg", distributed=self.conf.distributed
+                    )
+                    print(global_direction.buffer - tmp.buffer)
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
                     magnitudes_tb.buffer = self.world_aggregator._agg(

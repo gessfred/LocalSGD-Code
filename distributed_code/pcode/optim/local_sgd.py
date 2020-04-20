@@ -9,7 +9,6 @@ import pcode.utils.communication as comm
 from pcode.utils.sparsification import get_n_bits
 from pcode.utils.tensor_buffer import TensorBuffer
 
-
 class LocalSGD(Optimizer):
     def __init__(
         self,
