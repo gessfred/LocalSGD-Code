@@ -105,7 +105,7 @@ def signum(tensor):
     gather_list = [compressed.clone() for i in range(dist.get_world_size())]
     dist.all_gather(gather_list, compressed)
     gather_list = list(map(lambda recv: _unpack(recv, padding), gather_list))
-    return torch.sum(torch.cat(gather_list)) / dist.get_world_size()
+    return torch.sum(torch.stack(gather_list), dim=0) / dist.get_world_size()
 
 class Local_EFSGD(Optimizer):
     def __init__(
@@ -214,11 +214,6 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(memory - _local_scale * _local_sign)
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
                     global_direction = TB(self.memory_tb, direction)
-                    tmp = TensorBuffer(local_sign)
-                    tmp.buffer = self.world_aggregator._agg(
-                        tmp.buffer, "avg", distributed=self.conf.distributed
-                    )
-                    print('error:', global_direction.buffer - tmp.buffer)
                 with kargs["timer"]("magnitudes", epoch=self.conf.epoch_):
                     magnitudes_tb = TensorBuffer(local_scale)
                     magnitudes_tb.buffer = self.world_aggregator._agg(
