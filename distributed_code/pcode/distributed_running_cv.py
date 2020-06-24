@@ -29,7 +29,7 @@ def train_and_validate(
 
     # get the timer.
     timer = conf.timer
-    
+    conf.losses = {}
     # break until finish expected full epoch training.
     print("=>>>> enter the training.\n")
     while True:
@@ -38,29 +38,31 @@ def train_and_validate(
 
         # configure local step.
         for _input, _target in data_loader["train_loader"]:
-            model.train()
+            with timer('epoch', record_epoch=True, epoch=scheduler.epoch_):
+                model.train()
 
-            # load data
-            with timer("load_data", epoch=scheduler.epoch_):
-                _input, _target = load_data_batch(conf, _input, _target)
+                # load data
+                with timer("load_data", epoch=scheduler.epoch_):
+                    _input, _target = load_data_batch(conf, _input, _target)
 
-            # inference and get current performance.
-            with timer("forward_pass", epoch=scheduler.epoch_):
-                optimizer.zero_grad()
-                loss = inference(model, criterion, metrics, _input, _target, tracker_tr)
+                # inference and get current performance.
+                with timer("forward_pass", epoch=scheduler.epoch_):
+                    optimizer.zero_grad()
+                    loss = inference(model, criterion, metrics, _input, _target, tracker_tr)
 
-            with timer("backward_pass", epoch=scheduler.epoch_):
-                loss.backward()
+                with timer("backward_pass", epoch=scheduler.epoch_):
+                    loss.backward()
 
-            with timer("sync_and_apply_grad", epoch=scheduler.epoch_):
-                n_bits_to_transmit = optimizer.step(timer=timer, scheduler=scheduler)
-                scheduler.step()
+                with timer("sync_and_apply_grad", epoch=scheduler.epoch_):
+                    n_bits_to_transmit = optimizer.step(timer=timer, scheduler=scheduler)
+                    scheduler.step()
 
             # display the logging info.
             display_training_stat(conf, scheduler, tracker_tr, n_bits_to_transmit)
             # finish one epoch training and to decide if we want to val our model.
             if scheduler.epoch_ % 1 == 0:
                 timer.aggregate()
+                conf.losses[scheduler.epoch_] = tracker_tr.stat["loss"].avg
                 if tracker_tr.stat["loss"].avg > 1e3 or np.isnan(
                     tracker_tr.stat["loss"].avg
                 ):
