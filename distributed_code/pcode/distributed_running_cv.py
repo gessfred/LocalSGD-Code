@@ -29,7 +29,6 @@ def train_and_validate(
 
     # get the timer.
     timer = conf.timer
-    conf.losses = {}
     # break until finish expected full epoch training.
     print("=>>>> enter the training.\n")
     while True:
@@ -62,7 +61,6 @@ def train_and_validate(
             # finish one epoch training and to decide if we want to val our model.
             if scheduler.epoch_ % 1 == 0:
                 timer.aggregate()
-                conf.losses[str(int(scheduler.epoch_))] = tracker_tr.stat["loss"].avg
                 if tracker_tr.stat["loss"].avg > 1e3 or np.isnan(
                     tracker_tr.stat["loss"].avg
                 ):
