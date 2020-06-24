@@ -38,7 +38,7 @@ def train_and_validate(
 
         # configure local step.
         for _input, _target in data_loader["train_loader"]:
-            with timer('epoch', record_epoch=True, epoch=scheduler.epoch_):
+            with timer('epoch', record_epoch=True, epoch_done=scheduler.epoch_ % 1 == 0, epoch=scheduler.epoch_):
                 model.train()
 
                 # load data
