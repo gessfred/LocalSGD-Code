@@ -107,6 +107,13 @@ def signum(tensor):
     gather_list = list(map(lambda recv: _unpack(recv, padding), gather_list))
     return torch.sum(torch.stack(gather_list), dim=0) / dist.get_world_size()
 
+def exchange(tensor):
+    compressed, padding = quantize_gpu(tensor, 8)
+    gather_list = [compressed.clone() for i in range(dist.get_world_size())]
+    dist.all_gather(gather_list, compressed)
+    gather_list = list(map(lambda recv: unquantize_gpu(recv, padding, 8), gather_list))
+    return torch.sum(torch.stack(gather_list), dim=0) / dist.get_world_size()
+
 class Local_EFSGD(Optimizer):
     def __init__(
         self,
@@ -203,7 +210,7 @@ class Local_EFSGD(Optimizer):
                         memory.data.copy_(consensus_param - param + memory)
                         # compress.
                 with kargs["timer"]("directions", epoch=self.conf.epoch_):
-                    direction = signum(self.memory_tb.buffer)
+                    direction = exchange(self.memory_tb.buffer)#signum
                 with kargs['timer']('memory_and_compress', epoch=self.conf.epoch_):
                     for consensus_param, param, memory in zip(
                         self.consensus_params_tb, params_tb, self.memory_tb
